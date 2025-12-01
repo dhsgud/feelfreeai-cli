@@ -1,6 +1,6 @@
 {
   "name": "feelfreeai-cli",
-  "version": "0.1.1",
+  "version": "0.2.3",
   "description": "AI 기반 코딩 어시스턴트 CLI - llama.cpp와 Gemini를 지원하는 한글 친화적 개발 도구",
   "main": "dist/index.js",
   "bin": {
@@ -43,13 +43,17 @@
   "homepage": "https://github.com/dhsgud/feelfreeai-cli#readme",
   "dependencies": {
     "@google/generative-ai": "^0.21.0",
+    "@types/figlet": "^1.7.0",
     "axios": "^1.7.9",
+    "boxen": "^8.0.1",
     "chalk": "^4.1.2",
     "commander": "^12.1.0",
     "conf": "^10.2.0",
+    "figlet": "^1.9.4",
+    "gradient-string": "^3.0.0",
     "inquirer": "^8.2.6",
-    "ora": "^5.4.1",
-    "node-fetch": "^2.7.0"
+    "node-fetch": "^2.7.0",
+    "ora": "^5.4.1"
   },
   "devDependencies": {
     "@types/inquirer": "^8.2.10",
