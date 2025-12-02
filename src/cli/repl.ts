@@ -1,6 +1,6 @@
 import fs from 'fs';
 import chalk from 'chalk';
-import inquirer from 'inquirer';
+
 import ora from 'ora';
 import readline from 'readline';
 import { ContextManager } from '../files/context';
@@ -64,6 +64,14 @@ const COMMANDS: CommandDef[] = [
     { name: '/agent', description: 'Activate Agentic Mode' },
 ];
 
+interface AutocompleteState {
+    active: boolean;
+    mode: 'command' | 'file' | null;
+    suggestions: { name: string; description?: string; value: string }[];
+    selectedIndex: number;
+    queryStartIndex: number; // Index in lineBuffer where the query starts
+}
+
 export async function startRepl(options: ReplOptions) {
     console.clear();
     showWelcome();
@@ -113,38 +121,167 @@ export async function startRepl(options: ReplOptions) {
         process.stdin.resume();
 
         let lineBuffer = '';
-        let isInMenu = false;
+
+        // Autocomplete State
+        const acState: AutocompleteState = {
+            active: false,
+            mode: null,
+            suggestions: [],
+            selectedIndex: 0,
+            queryStartIndex: 0
+        };
+
+        const updateSuggestions = () => {
+            if (!acState.active) return;
+
+            const query = lineBuffer.slice(acState.queryStartIndex);
+
+            if (acState.mode === 'command') {
+                acState.suggestions = COMMANDS
+                    .filter(cmd => cmd.name.startsWith(query) || cmd.name.includes(query))
+                    .map(cmd => ({ name: cmd.name, description: cmd.description, value: cmd.name }));
+            } else if (acState.mode === 'file') {
+                try {
+                    const cwd = process.cwd();
+                    const files = fs.readdirSync(cwd)
+                        .filter(f => !f.startsWith('.') && f !== 'node_modules');
+
+                    acState.suggestions = files
+                        .filter(f => f.toLowerCase().includes(query.toLowerCase()))
+                        .map(f => ({ name: f, value: f }));
+                } catch (e) {
+                    acState.suggestions = [];
+                }
+            }
+
+            // Reset selection if out of bounds
+            if (acState.selectedIndex >= acState.suggestions.length) {
+                acState.selectedIndex = 0;
+            }
+        };
 
         const redrawLine = () => {
-            // Move cursor to start of line, clear line, then print prompt and buffer
+            // 1. Clear current line
             process.stdout.write('\r\x1b[K');
+
+            // 2. Print prompt and buffer
             process.stdout.write(getUserPrompt() + lineBuffer);
+
+            // 3. Render suggestions if active
+            if (acState.active && acState.suggestions.length > 0) {
+                // Save cursor position
+                process.stdout.write('\x1b7'); // Save cursor (DEC)
+
+                // Move down and clear below
+                process.stdout.write('\n\x1b[J');
+
+                const maxSuggestions = 5;
+                const start = Math.max(0, Math.min(acState.selectedIndex - 2, acState.suggestions.length - maxSuggestions));
+                const end = Math.min(start + maxSuggestions, acState.suggestions.length);
+
+                for (let i = start; i < end; i++) {
+                    const item = acState.suggestions[i];
+                    const isSelected = i === acState.selectedIndex;
+                    const prefix = isSelected ? chalk.cyan('> ') : '  ';
+                    const text = isSelected ? chalk.cyan(item.name) : item.name;
+                    const desc = item.description ? chalk.gray(` - ${item.description}`) : '';
+
+                    process.stdout.write(`${prefix}${text}${desc}\n`);
+                }
+
+                if (acState.suggestions.length > maxSuggestions) {
+                    process.stdout.write(chalk.gray(`  ... (${acState.suggestions.length - end} more)\n`));
+                }
+
+                // Restore cursor position
+                process.stdout.write('\x1b8'); // Restore cursor (DEC)
+            }
         };
 
         // Initial prompt
         redrawLine();
 
         process.stdin.on('keypress', async (str: string, key: any) => {
-            if (isInMenu) return;
-
             // Ctrl+C
             if (key.ctrl && key.name === 'c') {
                 process.stdout.write('\r\n');
                 process.exit(0);
             }
 
-            // Enter
+            // Navigation in Menu
+            if (acState.active && acState.suggestions.length > 0) {
+                if (key.name === 'up') {
+                    acState.selectedIndex = Math.max(0, acState.selectedIndex - 1);
+                    redrawLine();
+                    return;
+                }
+                if (key.name === 'down') {
+                    acState.selectedIndex = Math.min(acState.suggestions.length - 1, acState.selectedIndex + 1);
+                    redrawLine();
+                    return;
+                }
+                if (key.name === 'tab' || key.name === 'return') {
+                    const selected = acState.suggestions[acState.selectedIndex];
+                    if (selected) {
+                        // Apply selection
+                        const beforeQuery = lineBuffer.slice(0, acState.queryStartIndex);
+
+                        if (acState.mode === 'command') {
+                            lineBuffer = selected.value + ' '; // Add space after command
+                        } else {
+                            lineBuffer = beforeQuery + selected.value + ' ';
+                        }
+
+                        // Reset state
+                        acState.active = false;
+                        acState.mode = null;
+                        acState.suggestions = [];
+
+                        // If it was Enter, we might want to execute immediately if it's a command
+                        // But for now let's just complete the text and let user hit enter again or continue typing
+                        // Actually user requested "Enter to select OR execute". 
+                        // If it's a command completion, usually we just complete. 
+                        // If user hits Enter again, it executes.
+
+                        // Exception: If it was 'return' and we completed a command, 
+                        // maybe we should execute it if it's a full command?
+                        // Let's stick to completion first for safety.
+
+                        redrawLine();
+                        return;
+                    }
+                }
+                if (key.name === 'escape') {
+                    acState.active = false;
+                    acState.mode = null;
+                    acState.suggestions = [];
+                    // Clear the query part? User said "Esc to clear input/suggestions"
+                    // Usually Esc closes menu. If pressed again, clears line.
+                    // Let's just close menu for now.
+
+                    // Clear suggestions from screen
+                    process.stdout.write('\x1b7\n\x1b[J\x1b8');
+                    redrawLine();
+                    return;
+                }
+            }
+
+            // Enter (Execute)
             if (key.name === 'return') {
                 process.stdout.write('\r\n');
                 const input = lineBuffer.trim();
                 lineBuffer = '';
+
+                // Reset AC state
+                acState.active = false;
+                acState.suggestions = [];
 
                 if (!input) {
                     redrawLine();
                     return;
                 }
 
-                // Handle Command directly if typed manually
+                // Handle Command
                 if (input.startsWith('/')) {
                     await handleCommand(input, state);
                     redrawLine();
@@ -160,102 +297,52 @@ export async function startRepl(options: ReplOptions) {
             if (key.name === 'backspace') {
                 if (lineBuffer.length > 0) {
                     lineBuffer = lineBuffer.slice(0, -1);
-                    redrawLine();
-                }
-                return;
-            }
 
-            // Slash Command Trigger
-            if (str === '/' && lineBuffer === '') {
-                isInMenu = true;
-                process.stdout.write('/'); // Echo temporarily
-
-                // Clear line for menu
-                process.stdout.write('\r\x1b[K');
-
-                const choices = COMMANDS.map(cmd => ({
-                    name: `${cmd.name.padEnd(20)} ${chalk.gray(cmd.description)}`,
-                    value: cmd.name,
-                    short: cmd.name
-                }));
-
-                try {
-                    process.stdin.setRawMode(false);
-                    const answer = await inquirer.prompt([{
-                        type: 'list',
-                        name: 'command',
-                        message: '명령어를 선택하세요:',
-                        choices,
-                        pageSize: 15,
-                        loop: false,
-                    }]);
-
-                    if (answer.command) {
-                        await handleCommand(answer.command, state);
-                    }
-                } catch (error) {
-                    // Ignore
-                } finally {
-                    process.stdin.setRawMode(true);
-                    process.stdin.resume();
-                    isInMenu = false;
-                    lineBuffer = '';
-                    redrawLine();
-                }
-                return;
-            }
-
-            // @ File Mention Trigger
-            if (str === '@') {
-                isInMenu = true;
-                const tempBuffer = lineBuffer;
-
-                // Clear line for menu
-                process.stdout.write('\r\x1b[K');
-
-                try {
-                    process.stdin.setRawMode(false);
-                    const cwd = process.cwd();
-                    const files = fs.readdirSync(cwd)
-                        .filter(f => !f.startsWith('.') && f !== 'node_modules');
-
-                    if (files.length > 0) {
-                        const choices = files.map(f => ({
-                            name: f,
-                            value: f
-                        }));
-
-                        const answer = await inquirer.prompt([{
-                            type: 'list',
-                            name: 'file',
-                            message: '파일을 선택하세요:',
-                            choices,
-                            pageSize: 15,
-                            loop: false,
-                        }]);
-
-                        if (answer.file) {
-                            lineBuffer = tempBuffer + '@' + answer.file + ' ';
+                    // Check if we deleted the trigger
+                    if (acState.active) {
+                        if (lineBuffer.length < acState.queryStartIndex) {
+                            acState.active = false;
                         } else {
-                            lineBuffer = tempBuffer + '@';
+                            updateSuggestions();
                         }
-                    } else {
-                        lineBuffer = tempBuffer + '@';
                     }
-                } catch (error) {
-                    lineBuffer = tempBuffer + '@';
-                } finally {
-                    process.stdin.setRawMode(true);
-                    process.stdin.resume();
-                    isInMenu = false;
+
                     redrawLine();
                 }
                 return;
             }
 
-            // Normal Character (Allow all printable characters)
+            // Normal Input
             if (str) {
+                // Check for triggers
+                if (str === '/' && lineBuffer === '') {
+                    acState.active = true;
+                    acState.mode = 'command';
+                    acState.queryStartIndex = 0; // Start of line
+                    acState.selectedIndex = 0;
+                    lineBuffer += str;
+                    updateSuggestions();
+                    redrawLine();
+                    return;
+                }
+
+                if (str === '@') {
+                    acState.active = true;
+                    acState.mode = 'file';
+                    acState.queryStartIndex = lineBuffer.length + 1; // After @
+                    acState.selectedIndex = 0;
+                    lineBuffer += str;
+                    updateSuggestions();
+                    redrawLine();
+                    return;
+                }
+
                 lineBuffer += str;
+
+                if (acState.active) {
+                    updateSuggestions();
+                }
+
                 redrawLine();
             }
         });
@@ -304,7 +391,7 @@ async function handleCommand(input: string, state: ReplState): Promise<void> {
             await handleListSessions();
             break;
         case 'about':
-            showInfo('FeelFreeAI CLI v0.4.5 - AI 기반 코딩 어시스턴트');
+            showInfo('FeelFreeAI CLI v0.4.6 - AI 기반 코딩 어시스턴트');
             showInfo('GitHub: https://github.com/dhsgud/feelfreeai-cli');
             break;
         case 'bug':
