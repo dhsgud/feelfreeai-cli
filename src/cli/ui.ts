@@ -7,8 +7,6 @@ import boxen from 'boxen';
  */
 const PRIMARY_GRADIENT = gradient(['#00F5FF', '#00BFFF', '#1E90FF']);
 const SUCCESS_GRADIENT = gradient(['#00FF7F', '#00FA9A', '#32CD32']);
-const WARNING_GRADIENT = gradient(['#FFD700', '#FFA500', '#FF8C00']);
-const ERROR_GRADIENT = gradient(['#FF6B6B', '#FF4757', '#EE5A6F']);
 const ACCENT_GRADIENT = gradient(['#FF10F0', '#C724B1', '#8E44AD']);
 
 /**
@@ -68,19 +66,12 @@ export function showProviderReady(providerName: string): void {
  * AI 응답 헤더 표시
  */
 export function showAssistantHeader(): void {
-    const header = '╭─────────────────────────────────────────────────────────────╮';
-    const title = '│ 🤖 FeelFree AI                                              │';
-    const footer = '╰─────────────────────────────────────────────────────────────╯';
-
-    console.log();
-    console.log(PRIMARY_GRADIENT(header));
-    console.log(PRIMARY_GRADIENT(title));
-    console.log(PRIMARY_GRADIENT(footer));
-    console.log();
+    const header = ACCENT_GRADIENT('━━━ 🤖 AI Assistant 응답 ━━━');
+    console.log(`\n${header}\n`);
 }
 
 /**
- * 사용자 입력 프롬프트 꾸미기
+ * 사용자 프롬프트 문자열 반환
  */
 export function getUserPrompt(): string {
     return chalk.bold.cyan('You') + chalk.gray(' › ');
@@ -89,192 +80,156 @@ export function getUserPrompt(): string {
 /**
  * 로딩 스피너 프레임
  */
-const spinnerFrames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
-let spinnerIndex = 0;
+
 
 /**
- * 로딩 애니메이션 시작
- */
-export function showThinking(): ReturnType<typeof setInterval> {
-    process.stdout.write('\n');
-    return setInterval(() => {
-        const frame = spinnerFrames[spinnerIndex];
-        process.stdout.write(`\r${ACCENT_GRADIENT(frame)} ${chalk.dim('생각 중...')}`);
-        spinnerIndex = (spinnerIndex + 1) % spinnerFrames.length;
-    }, 80);
-}
-
-/**
- * 로딩 애니메이션 중지
- */
-export function stopThinking(timer: ReturnType<typeof setInterval>): void {
-    clearInterval(timer);
-    process.stdout.write('\r' + ' '.repeat(50) + '\r');
-}
-
-/**
- * 성공 메시지
+ * 성공 메시지 표시
  */
 export function showSuccess(message: string): void {
-    console.log(SUCCESS_GRADIENT(`✓ ${message}`));
+    console.log(chalk.green(`✓ ${message}`));
 }
 
 /**
- * 경고 메시지
+ * 경고 메시지 표시
  */
 export function showWarning(message: string): void {
-    console.log(WARNING_GRADIENT(`⚠ ${message}`));
+    console.log(chalk.yellow(`⚠ ${message}`));
 }
 
 /**
- * 에러 메시지
+ * 에러 메시지 표시
  */
 export function showError(message: string): void {
-    console.log(ERROR_GRADIENT(`✖ ${message}`));
+    console.log(chalk.red(`✗ ${message}`));
 }
 
 /**
- * 정보 메시지
+ * 정보 메시지 표시
  */
 export function showInfo(message: string): void {
     console.log(chalk.blue(`ℹ ${message}`));
 }
 
 /**
- * 구분선
+ * 파일 추가 성공 메시지
  */
-export function showDivider(char: string = '─', color: 'gray' | 'cyan' | 'yellow' | 'red' | 'green' | 'blue' = 'gray'): void {
-    const width = process.stdout.columns || 80;
-    const line = char.repeat(width);
-    const chalkColor = chalk[color];
-    console.log(chalkColor(line));
+export function showFileAdded(filePath: string): void {
+    console.log(chalk.green(`📁 ${filePath} ${chalk.gray('컨텍스트에 추가됨')}`));
 }
 
 /**
- * 파일 추가 알림
- */
-export function showFileAdded(filename: string): void {
-    console.log(chalk.green('  ✓') + chalk.bold(` ${filename} `) + chalk.dim('추가됨'));
-}
-
-/**
- * 스트리밍 텍스트 포맷팅
+ * 스트리밍 청크 포맷
  */
 export function formatStreamChunk(text: string): string {
-    return text;
+    return chalk.white(text);
 }
 
 /**
  * 명령어 실행 헤더
  */
 export function showCommandHeader(command: string): void {
-    console.log();
-    console.log(boxen(
-        chalk.bold.blue('⚡ 명령어 실행') + '\n' +
-        chalk.gray(command),
-        {
-            padding: { left: 1, right: 1, top: 0, bottom: 0 },
-            borderStyle: 'round',
-            borderColor: 'blue',
-            margin: { top: 0, bottom: 1 },
-        }
-    ));
-}
-
-/**
- * 세션 정보 표시
- */
-export function showSessionInfo(sessionName: string, messageCount: number): void {
-    const info = `💾 ${sessionName || '(이름 없음)'} · ${messageCount}개 메시지`;
-    console.log(boxen(PRIMARY_GRADIENT(info), {
-        padding: { left: 2, right: 2, top: 0, bottom: 0 },
-        borderStyle: 'round',
-        borderColor: 'cyan',
-        margin: { top: 1, bottom: 1 },
-    }));
+    const header = ACCENT_GRADIENT(`━━━ 🔧 명령어 실행: ${command} ━━━`);
+    console.log(`\n${header}\n`);
 }
 
 /**
  * 컨텍스트 상태 헤더
  */
 export function showContextHeader(fileCount: number, totalSize: number): void {
-    const header = `📁 컨텍스트 · ${fileCount}개 파일 · ${totalSize.toLocaleString()}자`;
-    console.log();
-    console.log(PRIMARY_GRADIENT(header));
-    console.log(chalk.gray('─'.repeat(60)));
+    const sizeInKB = (totalSize / 1024).toFixed(2);
+    console.log(chalk.bold.cyan(`\n📦 컨텍스트 상태`));
+    console.log(chalk.gray(`  파일 수: ${fileCount}`));
+    console.log(chalk.gray(`  전체 크기: ${sizeInKB} KB\n`));
 }
 
 /**
  * 도움말 섹션 헤더
  */
 export function showHelpSection(title: string): void {
-    console.log();
-    console.log(chalk.bold.cyan(`▸ ${title}`));
+    console.log(chalk.bold.cyan(`\n${title}`));
+    console.log(chalk.cyan('━'.repeat(50)));
 }
 
 /**
  * 도움말 항목
  */
 export function showHelpItem(command: string, description: string): void {
-    console.log(
-        chalk.yellow(`  ${command.padEnd(20)}`) +
-        chalk.gray(description)
-    );
+    console.log(`  ${chalk.yellow(command.padEnd(20))} ${chalk.gray(description)}`);
 }
 
 /**
- * 작별 메시지
+ * 종료 메시지
  */
 export function showGoodbye(): void {
-    console.log();
-    const goodbye = '👋 안녕히 가세요!';
-    console.log(boxen(ACCENT_GRADIENT(goodbye), {
-        padding: { left: 2, right: 2, top: 0, bottom: 0 },
-        borderStyle: 'round',
-        borderColor: 'magenta',
-        margin: { top: 1, bottom: 1 },
-    }));
-}
-
-/**
- * diff 스타일 코드 블록
- */
-export function showCodeDiff(oldLine: string, newLine: string, lineNumber: number): void {
-    console.log(chalk.gray(`  ${lineNumber}`) + chalk.red(' - ') + chalk.red(oldLine));
-    console.log(chalk.gray(`  ${lineNumber}`) + chalk.green(' + ') + chalk.green(newLine));
-}
-
-/**
- * 프로그레스 바
- */
-export function showProgress(current: number, total: number, label: string = ''): void {
-    const percentage = Math.floor((current / total) * 100);
-    const barLength = 30;
-    const filledLength = Math.floor((barLength * current) / total);
-    const bar = '█'.repeat(filledLength) + '░'.repeat(barLength - filledLength);
-
-    process.stdout.write(
-        `\r${chalk.cyan(bar)} ${chalk.bold(`${percentage}%`)} ${chalk.dim(label)}`
+    const message = boxen(
+        SUCCESS_GRADIENT('👋 감사합니다! 다음에 또 만나요!'),
+        {
+            padding: 1,
+            margin: 1,
+            borderStyle: 'round',
+            borderColor: 'green',
+        }
     );
+    console.log(`\n${message}\n`);
+}
 
-    if (current === total) {
-        process.stdout.write('\n');
+/**
+ * 도구 실행 표시
+ */
+export function showToolExecution(toolName: string, args: any): void {
+    console.log(chalk.magenta(`\n🔧 도구 실행: ${toolName}`));
+    console.log(chalk.gray(`  인자: ${JSON.stringify(args, null, 2)}`));
+}
+
+/**
+ * 자동완성 제안 목록 렌더링
+ */
+export function renderSuggestions(suggestions: { name: string, description?: string }[], selectedIndex: number = 0): void {
+    const NAME_WIDTH = 15; // 명령어 이름 너비 고정
+
+    suggestions.forEach((item, index) => {
+        process.stdout.write('\n'); // 한 줄 아래로
+        process.stdout.write('\x1B[2K'); // 현재 줄 지우기
+
+        const isSelected = index === selectedIndex;
+
+        // 선택된 항목 스타일링 (프리미엄 느낌의 보라/핑크)
+        // 이미지와 유사하게: 선택된 항목은 핑크색 텍스트, 비선택은 흰색/회색
+        const selectionColor = chalk.hex('#FF79C6'); // Dracula Pink 느낌
+        const descriptionColor = chalk.gray;
+
+        let lineContent = '';
+
+        if (isSelected) {
+            // 선택된 경우: "> 명령어   설명" (명령어는 핑크, 설명은 밝은 회색)
+            const prefix = selectionColor('❯ ');
+            const name = selectionColor.bold(item.name.padEnd(NAME_WIDTH));
+            const description = chalk.white(item.description || '');
+            lineContent = `${prefix}${name} ${description}`;
+        } else {
+            // 선택되지 않은 경우: "  명령어   설명" (명령어는 흰색, 설명은 어두운 회색)
+            const prefix = '  ';
+            const name = chalk.white(item.name.padEnd(NAME_WIDTH));
+            const description = descriptionColor(item.description || '');
+            lineContent = `${prefix}${name} ${description}`;
+        }
+
+        process.stdout.write(`\r${lineContent}`);
+    });
+
+    // 원래 입력 라인으로 커서 복귀
+    process.stdout.write(`\x1B[${suggestions.length}A`);
+}
+
+/**
+ * 자동완성 제안 목록 지우기
+ */
+export function clearSuggestions(count: number): void {
+    for (let i = 0; i < count; i++) {
+        process.stdout.write('\n');     // 아래로 이동
+        process.stdout.write('\x1B[2K'); // 줄 지우기
     }
-}
 
-/**
- * 테이블 헤더
- */
-export function showTableHeader(columns: string[]): void {
-    const header = columns.map(col => chalk.bold.cyan(col)).join(' │ ');
-    console.log(header);
-    console.log(chalk.gray('─'.repeat(80)));
-}
-
-/**
- * 테이블 행
- */
-export function showTableRow(values: string[]): void {
-    const row = values.map(val => val).join(' │ ');
-    console.log(row);
+    // 다시 원래 위치로 복귀
+    process.stdout.write(`\x1B[${count}A`);
 }

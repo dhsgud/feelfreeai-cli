@@ -68,7 +68,7 @@ export interface ProjectConfig {
 /**
  * 메시지 역할
  */
-export type MessageRole = 'user' | 'assistant' | 'system';
+export type MessageRole = 'user' | 'assistant' | 'system' | 'function';
 
 /**
  * 대화 메시지
@@ -94,6 +94,29 @@ export interface ToolCall {
     arguments: Record<string, unknown>;
     /** 실행 결과 */
     result?: string;
+    /** 호출 ID (LlamaCpp 등에서 사용) */
+    id?: string;
+}
+
+/**
+ * 도구 정의
+ */
+export interface Tool {
+    /** 도구 이름 */
+    name: string;
+    /** 도구 설명 */
+    description: string;
+    /** 파라미터 스키마 (JSON Schema) */
+    parameters: {
+        type: 'object';
+        properties: Record<string, {
+            type: string;
+            description: string;
+        }>;
+        required?: string[];
+    };
+    /** 실행 함수 */
+    execute: (args: any) => Promise<any>;
 }
 
 /**

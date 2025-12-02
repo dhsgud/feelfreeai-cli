@@ -40,7 +40,6 @@ import {
     showContextHeader,
     showHelpSection,
     showHelpItem,
-    showGoodbye,
 } from './ui';
 
 /**
@@ -67,23 +66,35 @@ interface ReplState {
     contextManager: ContextManager;
 }
 
-const COMMANDS = [
-    '/help',
-    '/clear',
-    '/files',
-    '/context',
-    '/save',
-    '/load',
-    '/sessions',
-    '/exit',
-    '/quit',
+interface CommandDef {
+    name: string;
+    description: string;
+}
+
+const COMMANDS: CommandDef[] = [
+    { name: '/about', description: 'Show version info' },
+    { name: '/bug', description: 'Submit a bug report' },
+    { name: '/chat', description: 'Manage conversation history' },
+    { name: '/clear', description: 'Clear the screen and conversation history' },
+    { name: '/compress', description: 'Compresses the context by replacing it with a summary' },
+    { name: '/copy', description: 'Copy the last result or code snippet to clipboard' },
+    { name: '/docs', description: 'Open full Gemini CLI documentation in your browser' },
+    { name: '/files', description: 'Show loaded files' },
+    { name: '/context', description: 'Check current context status' },
+    { name: '/save', description: 'Save current session' },
+    { name: '/load', description: 'Load a saved session' },
+    { name: '/sessions', description: 'List saved sessions' },
+    { name: '/exit', description: 'Exit the program' },
+    { name: '/quit', description: 'Exit the program' },
+    { name: '/agent', description: 'Activate Agentic Mode' },
 ];
 
 function completer(line: string) {
     // Command completion
     if (line.startsWith('/')) {
-        const hits = COMMANDS.filter((c) => c.startsWith(line));
-        return [hits.length ? hits : COMMANDS, line];
+        const commandNames = COMMANDS.map(c => c.name);
+        const hits = commandNames.filter((c) => c.startsWith(line));
+        return [hits.length ? hits : commandNames, line];
     }
 
     // File completion for @
@@ -148,6 +159,75 @@ export async function startRepl(options: ReplOptions): Promise<void> {
             completer,
         });
 
+        let isShowingMenu = false;
+        let inputBuffer = '';
+
+        const stdinHandler = async (data: Buffer) => {
+            if (isShowingMenu) return;
+            const char = data.toString();
+
+            if (char.length === 1 && char >= ' ' && char <= '~') {
+                inputBuffer += char;
+            } else if (char === '\r' || char === '\n') {
+                inputBuffer = '';
+            } else if (char === '\u007f' || char === '\b') {
+                inputBuffer = inputBuffer.slice(0, -1);
+            }
+
+            if (inputBuffer === '/') {
+                isShowingMenu = true;
+                inputBuffer = '';
+                (rl as any).line = '';
+                (rl as any).cursor = 0;
+                process.stdout.write('\b \b');
+                process.stdin.removeListener('data', stdinHandler);
+
+                const choices = COMMANDS.map(cmd => ({
+                    name: `${cmd.name.padEnd(20)} ${chalk.gray(cmd.description)}`,
+                    value: cmd.name,
+                    short: cmd.name
+                }));
+
+                try {
+                    process.stdout.write('\n');
+                    const answer = await inquirer.prompt([{
+                        type: 'list',
+                        name: 'command',
+                        message: '명령어를 선택하세요:',
+                        choices,
+                        pageSize: 15,
+                        loop: false,
+                    }]);
+                    if (answer.command) {
+                        await handleCommand(answer.command, state, rl);
+                    }
+                } catch (error) {
+                    console.log();
+                } finally {
+                    // stdin 강제 재개 및 유지
+                    if (process.stdin.isTTY) {
+                        process.stdin.setRawMode(false);
+                    }
+                    process.stdin.resume();
+                    process.stdin.ref();
+
+                    // stdin listener 재등록
+                    process.stdin.on('data', stdinHandler);
+                    isShowingMenu = false;
+
+                    // 약간의 지연 후 프롬프트 재표시
+                    setImmediate(() => {
+                        rl.prompt();
+                    });
+                }
+            }
+        };
+
+        // stdin을 계속 열어두기
+        process.stdin.resume();
+        process.stdin.ref();
+        process.stdin.on('data', stdinHandler);
+
         rl.prompt();
 
         rl.on('line', async (line) => {
@@ -166,11 +246,6 @@ export async function startRepl(options: ReplOptions): Promise<void> {
 
             await handleMessage(input, state);
             rl.prompt();
-        });
-
-        rl.on('close', () => {
-            showGoodbye();
-            process.exit(0);
         });
     } catch (error) {
         console.error(chalk.red('오류:'), error instanceof Error ? error.message : error);
@@ -217,6 +292,30 @@ async function handleCommand(
             break;
         case 'sessions':
             await handleListSessions();
+            break;
+        case 'about':
+            showInfo('FeelFreeAI CLI v0.4.2 - AI 기반 코딩 어시스턴트');
+            showInfo('GitHub: https://github.com/dhsgud/feelfreeai-cli');
+            break;
+        case 'bug':
+            showInfo('버그 리포트 페이지를 여는 중...');
+            showInfo('GitHub Issues: https://github.com/dhsgud/feelfreeai-cli/issues');
+            break;
+        case 'chat':
+            showInfo('대화 기록 관리 기능은 개발 예정입니다.');
+            break;
+        case 'compress':
+            showInfo('컨텍스트 압축 기능은 개발 예정입니다.');
+            break;
+        case 'copy':
+            showInfo('클립보드 복사 기능은 개발 예정입니다.');
+            break;
+        case 'docs':
+            showInfo('문서 페이지를 여는 중...');
+            showInfo('Documentation: https://github.com/dhsgud/feelfreeai-cli#readme');
+            break;
+        case 'agent':
+            showInfo('에이전트 모드는 개발 예정입니다.');
             break;
         default:
             console.log(chalk.red(`${ko.errors.invalidCommand}: /${command}`));
