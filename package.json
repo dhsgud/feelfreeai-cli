@@ -1,3 +1,12 @@
+﻿{
+  "name": "feelfreeai-cli",
+  "version": "0.4.6",
+  "description": "AI ??? ??? ????????CLI - llama.cpp?? Gemini???????????? ???????? ???",
+  "main": "dist/index.js",
+  "bin": {
+    "feelfree": "./dist/cli/index.js"
+  },
+  "scripts": {
     "build": "tsc",
     "dev": "tsx watch src/cli/index.ts",
     "start": "node dist/cli/index.js",
@@ -17,8 +26,8 @@
     "llama-cpp",
     "gemini",
     "korean",
-    "한글",
-    "개발도구",
+    "???",
+    "??????",
     "repl",
     "chatbot"
   ],
@@ -48,7 +57,6 @@
   },
   "devDependencies": {
     "@types/inquirer": "^8.2.10",
-    "@types/inquirer-autocomplete-prompt": "^3.0.3",
     "@types/jest": "^29.5.14",
     "@types/node": "^22.10.1",
     "@typescript-eslint/eslint-plugin": "^8.15.0",
