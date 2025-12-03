@@ -18,7 +18,7 @@ import {
     handleLoad,
     handleListSessions,
 } from './repl-handlers';
-import { preprocessInput, readFile } from '@feelfreeai/core';
+import { preprocessInput, readFile, setModel, MessageContent, FileReadResult } from '@feelfreeai/core';
 import {
     getUserPrompt,
     showWelcome,
@@ -66,6 +66,7 @@ const COMMANDS: CommandDef[] = [
     { name: '/exit', description: 'Exit the program' },
     { name: '/quit', description: 'Exit the program' },
     { name: '/agent', description: 'Activate Agentic Mode' },
+    { name: '/model', description: 'Switch AI model' },
 ];
 
 interface AutocompleteState {
@@ -411,6 +412,21 @@ async function handleCommand(input: string, state: ReplState): Promise<void> {
         case 'agent':
             showInfo('이 기능은 아직 개발 중입니다.');
             break;
+        case 'model':
+            if (args.length === 0) {
+                // @ts-ignore - Accessing private options for display
+                const currentModel = (state.provider as any).options?.model || 'unknown';
+                showInfo(`현재 모델: ${currentModel}`);
+                showInfo('사용법: /model <모델명>');
+                showInfo('예시: gemini-1.5-flash, gemini-1.5-pro, gemini-2.0-flash-exp');
+            } else {
+                const modelName = args[0];
+                await setModel(state.providerType, modelName);
+                // Re-create provider to apply changes
+                state.provider = await ProviderFactory.createFromConfig(state.providerType);
+                showSuccess(`모델이 변경되었습니다: ${modelName}`);
+            }
+            break;
         default:
             console.log(chalk.red(`\n알 수 없는 명령어: /${command}`));
     }
@@ -422,6 +438,8 @@ async function handleMessage(input: string, state: ReplState): Promise<void> {
     let finalInput = processed.processed;
 
     // 2. Handle file references
+    const imageFiles: FileReadResult[] = [];
+
     if (processed.type === 'file-reference' && processed.files) {
         console.log(chalk.gray(`\n파일 읽는 중: ${processed.files.join(', ')}...`));
 
@@ -429,8 +447,13 @@ async function handleMessage(input: string, state: ReplState): Promise<void> {
             try {
                 const result = await readFile(filePath);
                 if (result.exists) {
-                    state.contextManager.addFile(result);
-                    console.log(chalk.green(`✓ ${filePath} 로드됨`));
+                    if (result.mimeType && result.data) {
+                        imageFiles.push(result);
+                        console.log(chalk.green(`✓ ${filePath} (이미지 첨부됨)`));
+                    } else {
+                        state.contextManager.addFile(result);
+                        console.log(chalk.green(`✓ ${filePath} 로드됨`));
+                    }
                 } else {
                     console.log(chalk.red(`✗ ${filePath} (찾을 수 없음)`));
                 }
@@ -449,35 +472,87 @@ async function handleMessage(input: string, state: ReplState): Promise<void> {
         ? `${state.systemPrompt}\n\n${contextText}`
         : state.systemPrompt;
 
+    // 4. Construct Message Content (Multimodal support)
+    let messageContent: string | MessageContent[] = finalInput;
+    if (imageFiles.length > 0) {
+        const content: MessageContent[] = [];
+        if (finalInput) {
+            content.push({ type: 'text', text: finalInput });
+        }
+        for (const img of imageFiles) {
+            content.push({
+                type: 'image',
+                image: { mimeType: img.mimeType!, data: img.data! }
+            });
+        }
+        messageContent = content;
+    }
+
     if (state.streaming) {
-        let isFirst = true;
-        await state.provider.stream(
-            [...state.messages, { role: 'user', content: finalInput }],
-            systemPromptWithContext,
-            (chunk) => {
-                if (isFirst && !chunk.done) {
-                    isFirst = false;
-                }
-                if (!chunk.done) {
-                    process.stdout.write(chunk.text);
-                } else {
-                    console.log('\n');
+        const controller = new AbortController();
+        const signal = controller.signal;
+        let isAborted = false;
+
+        // Handle Ctrl+C for cancellation during streaming
+        const keyHandler = (str: string, key: any) => {
+            if (key.ctrl && key.name === 'c') {
+                if (!isAborted) {
+                    isAborted = true;
+                    controller.abort();
+                    process.stdout.write('\n' + chalk.yellow('! 응답 생성이 취소되었습니다.') + '\n');
                 }
             }
-        );
-        // Add to history
-        state.messages.push({ role: 'user', content: finalInput });
-        state.messages.push({ role: 'assistant', content: '(Streaming response)' });
+        };
+        process.stdin.on('keypress', keyHandler);
+
+        try {
+            let isFirst = true;
+            await state.provider.stream(
+                [...state.messages, { role: 'user', content: messageContent }],
+                systemPromptWithContext,
+                (chunk) => {
+                    if (isAborted) return;
+
+                    if (isFirst && !chunk.done) {
+                        isFirst = false;
+                    }
+                    if (!chunk.done) {
+                        process.stdout.write(chunk.text);
+                    } else {
+                        console.log('\n');
+                    }
+                },
+                signal
+            );
+
+            if (!isAborted) {
+                // Add to history only if not aborted (or maybe add partial?)
+                // For now, let's add it.
+                state.messages.push({ role: 'user', content: messageContent });
+                state.messages.push({ role: 'assistant', content: '(Streaming response)' });
+            }
+        } catch (error) {
+            if (!signal.aborted) {
+                console.error(chalk.red('오류:'), error instanceof Error ? error.message : error);
+            }
+        } finally {
+            process.stdin.off('keypress', keyHandler);
+        }
     } else {
         const spinner = ora('응답 생성 중...').start();
-        const response = await state.provider.chat(
-            [...state.messages, { role: 'user', content: finalInput }],
-            systemPromptWithContext
-        );
-        spinner.stop();
-        console.log(response.text + '\n');
-        state.messages.push({ role: 'user', content: finalInput });
-        state.messages.push({ role: 'assistant', content: response.text });
+        try {
+            const response = await state.provider.chat(
+                [...state.messages, { role: 'user', content: messageContent }],
+                systemPromptWithContext
+            );
+            spinner.stop();
+            console.log(response.text + '\n');
+            state.messages.push({ role: 'user', content: messageContent });
+            state.messages.push({ role: 'assistant', content: response.text });
+        } catch (error) {
+            spinner.stop();
+            console.error(chalk.red('오류:'), error instanceof Error ? error.message : error);
+        }
     }
 }
 

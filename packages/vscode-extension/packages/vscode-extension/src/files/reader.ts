@@ -14,10 +14,6 @@ export interface FileReadResult {
     size: number;
     /** 존재 여부 */
     exists: boolean;
-    /** MIME 타입 (이미지인 경우) */
-    mimeType?: string;
-    /** Base64 데이터 (이미지인 경우) */
-    data?: string;
 }
 
 /**
@@ -26,25 +22,6 @@ export interface FileReadResult {
 export async function readFile(filePath: string): Promise<FileReadResult> {
     try {
         const absolutePath = path.resolve(filePath);
-        const ext = path.extname(absolutePath).toLowerCase();
-        const imageExtensions = ['.png', '.jpg', '.jpeg', '.webp', '.heic', '.heif'];
-
-        if (imageExtensions.includes(ext)) {
-            const buffer = await fs.readFile(absolutePath);
-            const base64 = buffer.toString('base64');
-            const mimeType = getMimeType(ext);
-            const stats = await fs.stat(absolutePath);
-
-            return {
-                path: absolutePath,
-                content: '[Image File]',
-                size: stats.size,
-                exists: true,
-                mimeType,
-                data: base64,
-            };
-        }
-
         const content = await fs.readFile(absolutePath, 'utf-8');
         const stats = await fs.stat(absolutePath);
 
@@ -64,18 +41,6 @@ export async function readFile(filePath: string): Promise<FileReadResult> {
             };
         }
         throw error;
-    }
-}
-
-function getMimeType(ext: string): string {
-    switch (ext) {
-        case '.png': return 'image/png';
-        case '.jpg':
-        case '.jpeg': return 'image/jpeg';
-        case '.webp': return 'image/webp';
-        case '.heic': return 'image/heic';
-        case '.heif': return 'image/heif';
-        default: return 'application/octet-stream';
     }
 }
 

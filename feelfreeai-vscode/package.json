@@ -1,8 +1,8 @@
 {
-    "name": "@feelfreeai/vscode-extension",
+    "name": "feelfreeai-vscode",
     "displayName": "FeelFree AI",
-    "description": "AI 코딩 어시스턴트 - VS Code 내에서 Gemini 및 llama.cpp와 대화",
-    "version": "0.5.0",
+    "description": "AI 코딩 어시스턴트 - VS Code 내에서 Gemini 및 llama.cpp와 대화하세요",
+    "version": "0.1.15",
     "publisher": "feelfreeai",
     "icon": "icon.png",
     "engines": {
@@ -18,7 +18,9 @@
         "assistant",
         "gemini",
         "llama",
-        "korean"
+        "korean",
+        "coding",
+        "chatbot"
     ],
     "activationEvents": [],
     "main": "./dist/extension.js",
@@ -80,6 +82,16 @@
                     "default": "",
                     "description": "Gemini API 키"
                 },
+                "feelfreeai.geminiModel": {
+                    "type": "string",
+                    "default": "gemini-1.5-flash",
+                    "enum": [
+                        "gemini-1.5-flash",
+                        "gemini-1.5-pro",
+                        "gemini-2.0-flash-exp"
+                    ],
+                    "description": "Gemini 모델 선택"
+                },
                 "feelfreeai.llamacppEndpoint": {
                     "type": "string",
                     "default": "http://localhost:8080",
@@ -99,12 +111,9 @@
         "watch": "tsc --watch",
         "clean": "rimraf dist",
         "package": "vsce package",
-        "publish": "vsce publish",
-        "lint": "eslint src --ext .ts",
-        "lint:fix": "eslint src --ext .ts --fix"
+        "publish": "vsce publish"
     },
     "dependencies": {
-        "@feelfreeai/core": "file:../core",
         "@google/generative-ai": "^0.21.0",
         "axios": "^1.7.9",
         "node-fetch": "^2.7.0"
@@ -113,12 +122,16 @@
         "@types/node": "^22.10.1",
         "@types/vscode": "^1.85.0",
         "@vscode/vsce": "^2.22.0",
-        "eslint": "^8.57.1",
         "rimraf": "^5.0.5",
         "typescript": "^5.7.2"
     },
     "repository": {
         "type": "git",
-        "url": "https://github.com/dhsgud/feelfreeai-cli.git"
-    }
+        "url": "https://github.com/dhsgud/feelfreeai-vscode.git"
+    },
+    "bugs": {
+        "url": "https://github.com/dhsgud/feelfreeai-vscode/issues"
+    },
+    "homepage": "https://github.com/dhsgud/feelfreeai-vscode#readme",
+    "license": "MIT"
 }

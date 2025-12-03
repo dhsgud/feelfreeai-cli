@@ -1,4 +1,4 @@
-import { GoogleGenerativeAI, GenerativeModel, GenerateContentResult, Part, Content } from '@google/generative-ai';
+import { GoogleGenerativeAI, GenerativeModel, GenerateContentResult } from '@google/generative-ai';
 import { BaseProvider, ChatResponse, StreamChunk } from './base';
 import { Message } from '../config/types';
 
@@ -85,7 +85,7 @@ export class GeminiProvider extends BaseProvider {
                 tokensUsed,
             };
         } catch (error) {
-            this.handleGeminiError(error, '채팅 요청 실패');
+            this.handleError(error, '채팅 요청 실패');
         }
     }
 
@@ -95,8 +95,7 @@ export class GeminiProvider extends BaseProvider {
     async stream(
         messages: Message[],
         systemPrompt: string | undefined,
-        onChunk: (chunk: StreamChunk) => void,
-        signal?: AbortSignal
+        onChunk: (chunk: StreamChunk) => void
     ): Promise<ChatResponse> {
         try {
             const contents = this.formatMessages(messages, systemPrompt);
@@ -108,11 +107,6 @@ export class GeminiProvider extends BaseProvider {
             let fullText = '';
 
             for await (const chunk of result.stream) {
-                if (signal?.aborted) {
-                    onChunk({ text: '', done: true });
-                    break;
-                }
-
                 const chunkText = chunk.text();
                 fullText += chunkText;
 
@@ -140,7 +134,7 @@ export class GeminiProvider extends BaseProvider {
                 tokensUsed,
             };
         } catch (error) {
-            this.handleGeminiError(error, '스트리밍 요청 실패');
+            this.handleError(error, '스트리밍 요청 실패');
         }
     }
 
@@ -176,8 +170,8 @@ export class GeminiProvider extends BaseProvider {
     private formatMessages(
         messages: Message[],
         systemPrompt?: string
-    ): Content[] {
-        const contents: Content[] = [];
+    ): Array<{ role: string; parts: Array<{ text: string }> }> {
+        const contents: Array<{ role: string; parts: Array<{ text: string }> }> = [];
 
         // Gemini는 시스템 프롬프트를 첫 번째 유저 메시지에 포함
         let firstUserMessage = true;
@@ -188,35 +182,12 @@ export class GeminiProvider extends BaseProvider {
                 continue;
             }
 
-            const parts: Part[] = [];
+            let content = msg.content;
 
-            if (typeof msg.content === 'string') {
-                let textContent = msg.content;
-                // 첫 번째 유저 메시지에 시스템 프롬프트 추가
-                if (firstUserMessage && msg.role === 'user' && systemPrompt) {
-                    textContent = `${systemPrompt}\n\n${textContent}`;
-                    firstUserMessage = false;
-                }
-                parts.push({ text: textContent });
-            } else {
-                // 멀티모달 콘텐츠 처리
-                for (const content of msg.content) {
-                    if (content.type === 'text' && content.text) {
-                        let text = content.text;
-                        if (firstUserMessage && msg.role === 'user' && systemPrompt) {
-                            text = `${systemPrompt}\n\n${text}`;
-                            firstUserMessage = false;
-                        }
-                        parts.push({ text });
-                    } else if (content.type === 'image' && content.image) {
-                        parts.push({
-                            inlineData: {
-                                mimeType: content.image.mimeType,
-                                data: content.image.data
-                            }
-                        });
-                    }
-                }
+            // 첫 번째 유저 메시지에 시스템 프롬프트 추가
+            if (firstUserMessage && msg.role === 'user' && systemPrompt) {
+                content = `${systemPrompt}\n\n${content}`;
+                firstUserMessage = false;
             }
 
             // Gemini는 'assistant' 대신 'model'을 사용
@@ -224,22 +195,10 @@ export class GeminiProvider extends BaseProvider {
 
             contents.push({
                 role: role,
-                parts: parts,
+                parts: [{ text: content }],
             });
         }
 
         return contents;
-    }
-
-    private handleGeminiError(error: unknown, context: string): never {
-        const message = error instanceof Error ? error.message : String(error);
-
-        if (message.includes('429') || message.includes('Too Many Requests')) {
-            throw new Error(`[Gemini] ${context}: 요청 한도를 초과했습니다. (429)\n` +
-                `현재 모델(${this.options.model})의 사용량이 많습니다.\n` +
-                `'/model' 명령어를 사용하여 다른 모델로 변경해보세요.`);
-        }
-
-        throw new Error(`[Gemini] ${context}: ${message}`);
     }
 }

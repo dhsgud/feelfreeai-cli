@@ -85,7 +85,7 @@ export class GeminiProvider extends BaseProvider {
                 tokensUsed,
             };
         } catch (error) {
-            this.handleGeminiError(error, '채팅 요청 실패');
+            this.handleError(error, '채팅 요청 실패');
         }
     }
 
@@ -140,7 +140,7 @@ export class GeminiProvider extends BaseProvider {
                 tokensUsed,
             };
         } catch (error) {
-            this.handleGeminiError(error, '스트리밍 요청 실패');
+            this.handleError(error, '스트리밍 요청 실패');
         }
     }
 
@@ -231,13 +231,13 @@ export class GeminiProvider extends BaseProvider {
         return contents;
     }
 
-    private handleGeminiError(error: unknown, context: string): never {
+    protected handleError(error: unknown, context: string): never {
         const message = error instanceof Error ? error.message : String(error);
 
         if (message.includes('429') || message.includes('Too Many Requests')) {
             throw new Error(`[Gemini] ${context}: 요청 한도를 초과했습니다. (429)\n` +
                 `현재 모델(${this.options.model})의 사용량이 많습니다.\n` +
-                `'/model' 명령어를 사용하여 다른 모델로 변경해보세요.`);
+                `설정에서 다른 모델로 변경해보세요.`);
         }
 
         throw new Error(`[Gemini] ${context}: ${message}`);

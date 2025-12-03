@@ -73,14 +73,9 @@ export type MessageRole = 'user' | 'assistant' | 'system' | 'function';
 /**
  * 메시지 콘텐츠 파트
  */
-export interface MessageContent {
-    type: 'text' | 'image';
-    text?: string;
-    image?: {
-        mimeType: string;
-        data: string; // base64
-    };
-}
+export type MessageContent =
+    | { type: 'text'; text: string }
+    | { type: 'image'; image: { mimeType: string; data: string } };
 
 /**
  * 대화 메시지
@@ -88,7 +83,7 @@ export interface MessageContent {
 export interface Message {
     /** 메시지 역할 */
     role: MessageRole;
-    /** 메시지 내용 (문자열 또는 멀티모달 콘텐츠) */
+    /** 메시지 내용 */
     content: string | MessageContent[];
     /** 타임스탬프 */
     timestamp?: Date;

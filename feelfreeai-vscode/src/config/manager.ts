@@ -135,18 +135,3 @@ export const getApiKeyFromEnv = (provider: ProviderType): string | undefined => 
     }
     return undefined;
 };
-
-/**
- * 모델 설정
- */
-export const setModel = async (provider: ProviderType, model: string): Promise<void> => {
-    const config = await loadConfig();
-
-    if (provider === 'gemini') {
-        config.providers.gemini.model = model;
-    } else if (provider === 'llamacpp') {
-        config.providers.llamacpp.model = model;
-    }
-
-    await saveConfig(config);
-};

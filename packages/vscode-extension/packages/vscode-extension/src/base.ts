@@ -51,8 +51,7 @@ export abstract class BaseProvider {
     abstract stream(
         messages: Message[],
         systemPrompt: string | undefined,
-        onChunk: (chunk: StreamChunk) => void,
-        signal?: AbortSignal
+        onChunk: (chunk: StreamChunk) => void
     ): Promise<ChatResponse>;
 
     /**

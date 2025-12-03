@@ -1,11 +1,14 @@
 ﻿{
   "name": "feelfreeai-cli",
   "version": "0.5.0",
-  "description": "AI ??? ??? ????????CLI - llama.cpp?? Gemini???????????? ???????? ???",
+  "description": "AI 코딩 어시스턴트 CLI - llama.cpp와 Gemini를 활용한 대화형 코딩 도구",
   "main": "dist/index.js",
   "bin": {
     "feelfree": "./dist/cli/index.js"
   },
+  "workspaces": [
+    "packages/*"
+  ],
   "scripts": {
     "build": "tsc",
     "dev": "tsx watch src/cli/index.ts",
@@ -26,8 +29,8 @@
     "llama-cpp",
     "gemini",
     "korean",
-    "???",
-    "??????",
+    "인공지능",
+    "코딩",
     "repl",
     "chatbot"
   ],
