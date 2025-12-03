@@ -15,6 +15,8 @@ import {
     handleLoad,
     handleListSessions,
 } from './repl-handlers';
+import { preprocessInput } from '../files/parser';
+import { readFile } from '../files/reader';
 import {
     getUserPrompt,
     showWelcome,
@@ -169,11 +171,8 @@ export async function startRepl(options: ReplOptions) {
 
             // 3. Render suggestions if active
             if (acState.active && acState.suggestions.length > 0) {
-                // Save cursor position
-                process.stdout.write('\x1b7'); // Save cursor (DEC)
-
-                // Move down and clear below
-                process.stdout.write('\n\x1b[J');
+                let output = '\n\x1b[J'; // Move down and clear below
+                let lines = 1;
 
                 const maxSuggestions = 5;
                 const start = Math.max(0, Math.min(acState.selectedIndex - 2, acState.suggestions.length - maxSuggestions));
@@ -186,15 +185,21 @@ export async function startRepl(options: ReplOptions) {
                     const text = isSelected ? chalk.cyan(item.name) : item.name;
                     const desc = item.description ? chalk.gray(` - ${item.description}`) : '';
 
-                    process.stdout.write(`${prefix}${text}${desc}\n`);
+                    output += `${prefix}${text}${desc}\n`;
+                    lines++;
                 }
 
                 if (acState.suggestions.length > maxSuggestions) {
-                    process.stdout.write(chalk.gray(`  ... (${acState.suggestions.length - end} more)\n`));
+                    output += chalk.gray(`  ... (${acState.suggestions.length - end} more)\n`);
+                    lines++;
                 }
 
-                // Restore cursor position
-                process.stdout.write('\x1b8'); // Restore cursor (DEC)
+                process.stdout.write(output);
+
+                // Restore cursor by moving up and reprinting prompt
+                process.stdout.write(`\x1b[${lines}A`); // Move up
+                process.stdout.write('\r'); // Move to start
+                process.stdout.write(getUserPrompt() + lineBuffer); // Reprint prompt
             }
         };
 
@@ -410,13 +415,43 @@ async function handleCommand(input: string, state: ReplState): Promise<void> {
 }
 
 async function handleMessage(input: string, state: ReplState): Promise<void> {
+    // 1. Preprocess input to find file references
+    const processed = preprocessInput(input);
+    let finalInput = processed.processed;
+
+    // 2. Handle file references
+    if (processed.type === 'file-reference' && processed.files) {
+        console.log(chalk.gray(`\n파일 읽는 중: ${processed.files.join(', ')}...`));
+
+        for (const filePath of processed.files) {
+            try {
+                const result = await readFile(filePath);
+                if (result.exists) {
+                    state.contextManager.addFile(result);
+                    console.log(chalk.green(`✓ ${filePath} 로드됨`));
+                } else {
+                    console.log(chalk.red(`✗ ${filePath} (찾을 수 없음)`));
+                }
+            } catch (error) {
+                console.log(chalk.red(`✗ ${filePath} (오류: ${error instanceof Error ? error.message : String(error)})`));
+            }
+        }
+        console.log(); // Empty line
+    }
+
     showAssistantHeader();
+
+    // 3. Prepare System Prompt with Context
+    const contextText = state.contextManager.getContextText();
+    const systemPromptWithContext = contextText
+        ? `${state.systemPrompt}\n\n${contextText}`
+        : state.systemPrompt;
 
     if (state.streaming) {
         let isFirst = true;
         await state.provider.stream(
-            [...state.messages, { role: 'user', content: input }],
-            state.systemPrompt,
+            [...state.messages, { role: 'user', content: finalInput }],
+            systemPromptWithContext,
             (chunk) => {
                 if (isFirst && !chunk.done) {
                     isFirst = false;
@@ -428,18 +463,18 @@ async function handleMessage(input: string, state: ReplState): Promise<void> {
                 }
             }
         );
-        // Add to history (simplified, ideally we capture full response)
-        state.messages.push({ role: 'user', content: input });
+        // Add to history
+        state.messages.push({ role: 'user', content: finalInput });
         state.messages.push({ role: 'assistant', content: '(Streaming response)' });
     } else {
         const spinner = ora('응답 생성 중...').start();
         const response = await state.provider.chat(
-            [...state.messages, { role: 'user', content: input }],
-            state.systemPrompt
+            [...state.messages, { role: 'user', content: finalInput }],
+            systemPromptWithContext
         );
         spinner.stop();
         console.log(response.text + '\n');
-        state.messages.push({ role: 'user', content: input });
+        state.messages.push({ role: 'user', content: finalInput });
         state.messages.push({ role: 'assistant', content: response.text });
     }
 }
