@@ -13,19 +13,6 @@
 ### Features by Phase
 
 #### Phase 1-3: Foundation
-- Project scaffolding with TypeScript
-- Configuration management system
-- LLM provider factory pattern
-- CLI argument parsing with Commander.js
-
-#### Phase 4: File Operations
-- File reader with error handling
-- Input parser for `@file` and `!command` syntax
-- Context manager for file tracking
-
-#### Phase 5: Session Management
-- Session creation and ID generation
-- Save/load functionality
 - Session listing and search
 - File-based persistence
 

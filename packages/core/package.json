@@ -1,0 +1,35 @@
+{
+    "name": "@feelfreeai/core",
+    "version": "0.5.0",
+    "description": "FeelFree AI Core - 공통 로직 및 프로바이더",
+    "main": "dist/index.js",
+    "types": "dist/index.d.ts",
+    "scripts": {
+        "build": "tsc",
+        "clean": "rimraf dist",
+        "test": "jest",
+        "lint": "eslint src --ext .ts",
+        "lint:fix": "eslint src --ext .ts --fix"
+    },
+    "keywords": [
+        "ai",
+        "llm",
+        "gemini",
+        "llama-cpp"
+    ],
+    "author": "FeelFree AI Team",
+    "license": "MIT",
+    "dependencies": {
+        "@google/generative-ai": "^0.21.0",
+        "axios": "^1.7.9",
+        "node-fetch": "^2.7.0"
+    },
+    "devDependencies": {
+        "@types/jest": "^29.5.14",
+        "@types/node": "^22.10.1",
+        "jest": "^29.7.0",
+        "rimraf": "^5.0.5",
+        "ts-jest": "^29.2.5",
+        "typescript": "^5.7.2"
+    }
+}

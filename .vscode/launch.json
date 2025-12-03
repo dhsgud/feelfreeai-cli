@@ -1,0 +1,31 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Extension Development Host",
+            "type": "extensionHost",
+            "request": "launch",
+            "args": [
+                "--extensionDevelopmentPath=${workspaceFolder}/packages/vscode-extension"
+            ],
+            "outFiles": [
+                "${workspaceFolder}/packages/vscode-extension/dist/**/*.js"
+            ],
+            "preLaunchTask": "${defaultBuildTask}"
+        },
+        {
+            "name": "CLI Debug",
+            "type": "node",
+            "request": "launch",
+            "program": "${workspaceFolder}/packages/cli/src/cli/index.ts",
+            "args": [],
+            "runtimeArgs": [
+                "-r",
+                "tsx/register"
+            ],
+            "cwd": "${workspaceFolder}/packages/cli",
+            "console": "integratedTerminal",
+            "internalConsoleOptions": "neverOpen"
+        }
+    ]
+}

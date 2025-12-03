@@ -1,0 +1,115 @@
+{
+    "name": "@feelfreeai/vscode-extension",
+    "displayName": "FeelFree AI",
+    "description": "AI 코딩 어시스턴트 - VS Code 내에서 Gemini 및 llama.cpp와 대화",
+    "version": "0.5.0",
+    "publisher": "feelfreeai",
+    "engines": {
+        "vscode": "^1.85.0"
+    },
+    "categories": [
+        "Programming Languages",
+        "Machine Learning",
+        "Other"
+    ],
+    "keywords": [
+        "ai",
+        "assistant",
+        "gemini",
+        "llama",
+        "korean"
+    ],
+    "activationEvents": [
+        "onStartupFinished"
+    ],
+    "main": "./dist/extension.js",
+    "contributes": {
+        "commands": [
+            {
+                "command": "feelfreeai.askQuestion",
+                "title": "FeelFree AI: Ask Question"
+            },
+            {
+                "command": "feelfreeai.explainCode",
+                "title": "FeelFree AI: Explain Code"
+            },
+            {
+                "command": "feelfreeai.refactorCode",
+                "title": "FeelFree AI: Refactor Code"
+            },
+            {
+                "command": "feelfreeai.generateTests",
+                "title": "FeelFree AI: Generate Tests"
+            },
+            {
+                "command": "feelfreeai.openChat",
+                "title": "FeelFree AI: Open Chat"
+            }
+        ],
+        "viewsContainers": {
+            "activitybar": [
+                {
+                    "id": "feelfreeai",
+                    "title": "FeelFree AI",
+                    "icon": "$(comment-discussion)"
+                }
+            ]
+        },
+        "views": {
+            "feelfreeai": [
+                {
+                    "id": "feelfreeai.chatView",
+                    "name": "Chat",
+                    "type": "webview"
+                }
+            ]
+        },
+        "configuration": {
+            "title": "FeelFree AI",
+            "properties": {
+                "feelfreeai.provider": {
+                    "type": "string",
+                    "enum": [
+                        "gemini",
+                        "llamacpp"
+                    ],
+                    "default": "gemini",
+                    "description": "AI 프로바이더 선택"
+                },
+                "feelfreeai.geminiApiKey": {
+                    "type": "string",
+                    "default": "",
+                    "description": "Gemini API 키"
+                },
+                "feelfreeai.llamacppEndpoint": {
+                    "type": "string",
+                    "default": "http://localhost:8080",
+                    "description": "llama.cpp 서버 엔드포인트"
+                },
+                "feelfreeai.streaming": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "스트리밍 모드 활성화"
+                }
+            }
+        }
+    },
+    "scripts": {
+        "build": "tsc",
+        "watch": "tsc --watch",
+        "clean": "rimraf dist",
+        "package": "vsce package",
+        "lint": "eslint src --ext .ts",
+        "lint:fix": "eslint src --ext .ts --fix"
+    },
+    "dependencies": {
+        "@feelfreeai/core": "^0.5.0"
+    },
+    "devDependencies": {
+        "@types/node": "^22.10.1",
+        "@types/vscode": "^1.85.0",
+        "@vscode/vsce": "^2.22.0",
+        "rimraf": "^5.0.5",
+        "typescript": "^5.7.2"
+    }
+}
