@@ -1,4 +1,4 @@
-import * as vscode from 'vscode';
+﻿import * as vscode from 'vscode';
 import { GeminiProvider } from './providers/gemini';
 import { LlamaCppProvider } from './providers/llamacpp';
 import { BaseProvider } from './providers/base';
@@ -116,7 +116,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
                 const model = config.get<string>('geminiModel', 'gemini-1.5-flash');
 
                 if (!apiKey) {
-                    const errorMsg = 'Gemini API 키가 설정되지 않았습니다.';
+                    const errorMsg = 'Gemini API ?ㅺ? ?ㅼ젙?섏? ?딆븯?듬땲??';
                     this._view?.webview.postMessage({ type: 'error', error: errorMsg });
                     return;
                 }
@@ -176,7 +176,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 
         if (images && images.length > 0) {
             const parts: any[] = [];
-            const textContent = enhancedMessage.trim() || "이 이미지에 대해 설명해줘";
+            const textContent = enhancedMessage.trim() || "???대?吏??????ㅻ챸?댁쨾";
             parts.push({ type: 'text', text: textContent });
 
             for (const img of images) {
@@ -434,7 +434,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
             canSelectFiles: true,
             canSelectFolders: false,
             canSelectMany: true,
-            openLabel: '파일 추가'
+            openLabel: '?뚯씪 異붽?'
         });
 
         if (result && result.length > 0) {
@@ -470,7 +470,14 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 
     // HTML will be in the next file
     private _getHtmlForWebview(_webview: vscode.Webview) {
-        return `<!DOCTYPE html>
+        // This will be replaced with the full HTML
+        return '';
+    }
+}
+// Part 2: HTML怨?CSS
+// ???댁슜? _getHtmlForWebview 硫붿꽌?쒖쓽 return 媛믪엯?덈떎
+
+const htmlContent = `<!DOCTYPE html>
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
@@ -891,19 +898,19 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     <div id="header">
         <div id="header-title">FeelFree AI</div>
         <div id="header-actions">
-            <button class="icon-button" id="history-btn" title="히스토리">
+            <button class="icon-button" id="history-btn" title="?덉뒪?좊━">
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
                     <path d="M8 1a7 7 0 1 0 7 7 7.01 7.01 0 0 0-7-7zm0 13a6 6 0 1 1 6-6 6.01 6.01 0 0 1-6 6z"/>
                     <path d="M8.5 4v4.5H12v-1H9.5V4h-1z"/>
                 </svg>
             </button>
-            <button class="icon-button" id="new-chat-btn" title="새 채팅">
+            <button class="icon-button" id="new-chat-btn" title="??梨꾪똿">
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
                     <path d="M14 3H2v10h12V3zm-1 9H3V4h10v8z"/>
                     <path d="M12 1H4v1h8V1zm0 13H4v1h8v-1z"/>
                 </svg>
             </button>
-            <button class="icon-button" id="settings-btn" title="설정">
+            <button class="icon-button" id="settings-btn" title="?ㅼ젙">
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
                     <path d="M9.1 4.4L8.6 2H7.4l-.5 2.4-.7.3-2-1.3-.9.8 1.3 2-.2.7-2.4.5v1.2l2.4.5.3.8-1.3 2 .8.8 2-1.3.8.3.4 2.4h1.2l.5-2.4.8-.3 2 1.3.8-.8-1.3-2 .3-.8 2.3-.4V7.4l-2.4-.5-.3-.8 1.3-2-.8-.8-2 1.3-.7-.2zM8 11a3 3 0 1 1 0-6 3 3 0 0 1 0 6z"/>
                 </svg>
@@ -920,17 +927,17 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         <!-- Context Items Section -->
         <div id="context-items-section">
             <div id="context-items-header">
-                📎 Code Context Items
-                <button id="add-context-btn">+ 파일 추가</button>
+                ?뱨 Code Context Items
+                <button id="add-context-btn">+ ?뚯씪 異붽?</button>
             </div>
             <div id="context-items-list"></div>
         </div>
 
         <div id="messages-container">
             <div id="empty-state">
-                <div style="font-size: 48px; margin-bottom: 16px;">💬</div>
-                <div>AI에게 무엇이든 물어보세요</div>
-                <div style="font-size: 12px; margin-top: 8px; opacity: 0.7;">@ 를 입력하여 파일을 참조할 수 있습니다</div>
+                <div style="font-size: 48px; margin-bottom: 16px;">?뮠</div>
+                <div>AI?먭쾶 臾댁뾿?대뱺 臾쇱뼱蹂댁꽭??/div>
+                <div style="font-size: 12px; margin-top: 8px; opacity: 0.7;">@ 瑜??낅젰?섏뿬 ?뚯씪??李몄“?????덉뒿?덈떎</div>
             </div>
         </div>
 
@@ -956,13 +963,13 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
                 <div id="autocomplete-dropdown"></div>
                 <div id="image-preview-area" style="display: none; padding: 4px; gap: 4px; overflow-x: auto;"></div>
                 <div style="display: flex; width: 100%; align-items: flex-end; gap: 8px;">
-                    <button id="attach-btn" class="icon-button" title="이미지 첨부">
+                    <button id="attach-btn" class="icon-button" title="?대?吏 泥⑤?">
                         <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
                             <path d="M4.5 3h7a1.5 1.5 0 0 1 1.5 1.5v7a1.5 1.5 0 0 1-1.5 1.5h-7A1.5 1.5 0 0 1 3 11.5v-7A1.5 1.5 0 0 1 4.5 3zm0 1a.5.5 0 0 0-.5.5v7a.5.5 0 0 0 .5.5h7a.5.5 0 0 0 .5-.5v-7a.5.5 0 0 0-.5-.5h-7z"/>
                             <path d="M5 8l2-2 2 2 2-2 2 2v3H5V8z"/>
                         </svg>
                     </button>
-                    <textarea id="message-input" placeholder="메시지를 입력하세요... (@로 파일 참조, Ctrl+Enter로 전송)" rows="1"></textarea>
+                    <textarea id="message-input" placeholder="硫붿떆吏瑜??낅젰?섏꽭??.. (@濡??뚯씪 李몄“, Ctrl+Enter濡??꾩넚)" rows="1"></textarea>
                     <button id="stop-btn" style="display: none; background-color: var(--vscode-errorForeground); color: white; border: none; border-radius: 4px; width: 28px; height: 28px; align-items: center; justify-content: center; cursor: pointer;">
                         <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
                             <path d="M4 4h8v8H4z"/>
@@ -977,7 +984,13 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
             </div>
         </div>
     </div>
+`;
 
+// JavaScript 遺遺꾩? Part 3?먯꽌 怨꾩냽?⑸땲??
+// Part 3: JavaScript
+// ???댁슜? HTML??<script> ?쒓렇 ?덉뿉 ?ㅼ뼱媛묐땲??
+
+const jsContent = `
     <script>
         const vscode = acquireVsCodeApi();
         
@@ -1059,15 +1072,18 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
             const text = messageInput.value;
             const cursorPos = messageInput.selectionStart;
             
+            // @ 臾몄옄 李얘린
             const textBeforeCursor = text.substring(0, cursorPos);
             const lastAtIndex = textBeforeCursor.lastIndexOf('@');
             
             if (lastAtIndex !== -1) {
                 const textAfterAt = textBeforeCursor.substring(lastAtIndex + 1);
                 
+                // @  ??怨듬갚???녾퀬, 媛쒗뻾???놁쑝硫?寃??
                 if (!textAfterAt.includes(' ') && !textAfterAt.includes('\\n')) {
                     lastAtPosition = lastAtIndex;
                     
+                    // ?뚯씪 寃??
                     if (textAfterAt.length >= 0) {
                         vscode.postMessage({ type: 'searchFiles', query: textAfterAt });
                         isShowingAutocomplete = true;
@@ -1165,7 +1181,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
                 }
                 
                 item.innerHTML = \`
-                    <span class="autocomplete-file-icon">📄</span>
+                    <span class="autocomplete-file-icon">?뱞</span>
                     <span class="autocomplete-file-name">\${result.name}</span>
                     <span class="autocomplete-file-path">\${result.path}</span>
                 \`;
@@ -1192,6 +1208,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         }
 
         function selectAutocompleteItem(result) {
+            // @ ?댄썑???띿뒪?몃? ?뚯씪紐낆쑝濡?援먯껜
             const text = messageInput.value;
             const cursorPos = messageInput.selectionStart;
             const textBeforeCursor = text.substring(0, cursorPos);
@@ -1202,6 +1219,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
             
             messageInput.value = newText;
             
+            // 而⑦뀓?ㅽ듃???뚯씪 異붽?
             const item = {
                 type: 'file',
                 name: result.name,
@@ -1251,7 +1269,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
                     div.style.position = 'relative';
                     div.innerHTML = \`
                         <img src="data:\${img.mimeType};base64,\${img.data}" style="height: 40px; border-radius: 4px;">
-                        <button class="remove-img-btn" style="position: absolute; top: -4px; right: -4px; background: red; color: white; border: none; border-radius: 50%; width: 16px; height: 16px; font-size: 10px; cursor: pointer;">×</button>
+                        <button class="remove-img-btn" style="position: absolute; top: -4px; right: -4px; background: red; color: white; border: none; border-radius: 50%; width: 16px; height: 16px; font-size: 10px; cursor: pointer;">횞</button>
                     \`;
                     div.querySelector('.remove-img-btn').onclick = () => {
                         selectedImages.splice(index, 1);
@@ -1275,8 +1293,8 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
                     const div = document.createElement('div');
                     div.className = 'context-item';
                     div.innerHTML = \`
-                        📄 \${item.name}
-                        <button class="context-item-remove">×</button>
+                        ?뱞 \${item.name}
+                        <button class="context-item-remove">횞</button>
                     \`;
                     div.querySelector('.context-item-remove').onclick = () => {
                         vscode.postMessage({ type: 'removeContextItem', path: item.path });
@@ -1311,7 +1329,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
                 item.className = 'history-item';
                 item.innerHTML = \`
                     <span class="history-item-title">\${session.title}</span>
-                    <button class="delete-session-btn" title="삭제">×</button>
+                    <button class="delete-session-btn" title="??젣">횞</button>
                 \`;
                 
                 item.onclick = (e) => {
@@ -1393,6 +1411,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         });
     </script>
 </body>
-</html>`;
-    }
-}
+</html>\`;
+`;
+
+// ?댁젣 ????part瑜??섎굹濡??⑹퀜???⑸땲??

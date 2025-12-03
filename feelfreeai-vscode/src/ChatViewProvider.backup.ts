@@ -3,20 +3,12 @@ import { GeminiProvider } from './providers/gemini';
 import { LlamaCppProvider } from './providers/llamacpp';
 import { BaseProvider } from './providers/base';
 import { Message } from './config/types';
-import { searchWorkspaceFiles, getFileContent, getRelativePath } from './files/fileSearch';
 
 interface ChatSession {
     id: string;
     title: string;
     date: number;
     messages: Message[];
-}
-
-export interface ContextItem {
-    type: 'file' | 'directory' | 'image';
-    name: string;
-    path: string;
-    uri?: string;
 }
 
 export class ChatViewProvider implements vscode.WebviewViewProvider {
@@ -26,12 +18,12 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     private messages: Message[] = [];
     private currentSessionId: string = Date.now().toString();
     private abortController?: AbortController;
-    private contextItems: ContextItem[] = [];
 
     constructor(
         private readonly _extensionUri: vscode.Uri,
         private readonly _context: vscode.ExtensionContext
     ) {
+        // 설정 변경 감지
         vscode.workspace.onDidChangeConfiguration(e => {
             if (e.affectsConfiguration('feelfreeai.provider') ||
                 e.affectsConfiguration('feelfreeai.geminiApiKey') ||
@@ -56,6 +48,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 
         webviewView.webview.html = this._getHtmlForWebview(webviewView.webview);
 
+        // Handle messages from the webview
         webviewView.webview.onDidReceiveMessage(async (data) => {
             switch (data.type) {
                 case 'sendMessage':
@@ -82,25 +75,12 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
                 case 'ready':
                     this.initializeProvider();
                     this.sendHistoryToWebview();
-                    this.sendContextItems();
                     break;
                 case 'stopGeneration':
                     this.stopGeneration();
                     break;
                 case 'selectImage':
                     this.handleSelectImage();
-                    break;
-                case 'searchFiles':
-                    await this.handleSearchFiles(data.query);
-                    break;
-                case 'addContextItem':
-                    await this.handleAddContextItem(data.item);
-                    break;
-                case 'removeContextItem':
-                    this.handleRemoveContextItem(data.path);
-                    break;
-                case 'selectFileForContext':
-                    await this.handleSelectFileForContext();
                     break;
             }
         });
@@ -154,31 +134,15 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
             return;
         }
 
-        let enhancedMessage = message;
-        if (this.contextItems.length > 0) {
-            let contextPart = '';
-            for (const item of this.contextItems) {
-                if (item.type === 'file' && item.uri) {
-                    try {
-                        const content = await getFileContent(vscode.Uri.parse(item.uri));
-                        contextPart += `\n\nFile: ${item.name}\n\`\`\`\n${content}\n\`\`\`\n`;
-                    } catch (error) {
-                        console.error('Error reading file:', error);
-                    }
-                }
-            }
-            if (contextPart) {
-                enhancedMessage = `${contextPart}\n\n${message}`;
-            }
-        }
-
-        let content: string | { type: 'text'; text: string } | { type: 'image'; image: { mimeType: string; data: string } }[] = enhancedMessage;
+        let content: string | { type: 'text'; text: string } | { type: 'image'; image: { mimeType: string; data: string } }[] = message;
 
         if (images && images.length > 0) {
             const parts: any[] = [];
-            const textContent = enhancedMessage.trim() || "이 이미지에 대해 설명해줘";
+            // 텍스트를 먼저 추가 (비어있으면 기본 텍스트 추가)
+            const textContent = message.trim() || "이 이미지에 대해 설명해줘";
             parts.push({ type: 'text', text: textContent });
 
+            // 이미지를 나중에 추가
             for (const img of images) {
                 parts.push({ type: 'image', image: img });
             }
@@ -186,7 +150,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         }
 
         this.messages.push({ role: 'user', content: content as any });
-        this.saveCurrentSession();
+        this.saveCurrentSession(); // 메시지 추가 시 저장
 
         this.abortController = new AbortController();
         const signal = this.abortController.signal;
@@ -195,6 +159,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
             const config = vscode.workspace.getConfiguration('feelfreeai');
             const streaming = config.get<boolean>('streaming', true);
 
+            // 컨텍스트 사용량 업데이트 (추정치)
             this.updateContextUsage();
 
             if (streaming) {
@@ -214,7 +179,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
                         } else {
                             this._view?.webview.postMessage({ type: 'responseComplete' });
                             this.messages.push({ role: 'assistant', content: fullResponse });
-                            this.saveCurrentSession();
+                            this.saveCurrentSession(); // 응답 완료 시 저장
                             this.updateContextUsage();
                             this.abortController = undefined;
                         }
@@ -255,6 +220,8 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
             this.abortController.abort();
             this.abortController = undefined;
             this._view?.webview.postMessage({ type: 'responseComplete' });
+            // Add a message indicating cancellation?
+            // this.messages.push({ role: 'assistant', content: '[Cancelled]' });
         }
     }
 
@@ -321,9 +288,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     private startNewSession() {
         this.messages = [];
         this.currentSessionId = Date.now().toString();
-        this.contextItems = [];
         this._view?.webview.postMessage({ type: 'clearChat' });
-        this.sendContextItems();
         this.updateContextUsage();
     }
 
@@ -333,7 +298,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         const sessions = this.getSessions();
         const existingIndex = sessions.findIndex(s => s.id === this.currentSessionId);
 
-        const title = this.messages[0].content.toString().slice(0, 30) + (this.messages[0].content.toString().length > 30 ? '...' : '');
+        const title = this.messages[0].content.slice(0, 30) + (this.messages[0].content.length > 30 ? '...' : '');
 
         const session: ChatSession = {
             id: this.currentSessionId,
@@ -390,76 +355,18 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         });
     }
 
-    // --- Context Items Management ---
-
-    private sendContextItems() {
-        this._view?.webview.postMessage({
-            type: 'contextItemsUpdate',
-            items: this.contextItems
-        });
-    }
-
-    private async handleSearchFiles(query: string) {
-        try {
-            const files = await searchWorkspaceFiles(query, 20);
-            const results = files.map(uri => ({
-                name: uri.path.split('/').pop() || '',
-                path: getRelativePath(uri),
-                uri: uri.toString()
-            }));
-            this._view?.webview.postMessage({
-                type: 'fileSearchResults',
-                results
-            });
-        } catch (error) {
-            console.error('File search error:', error);
-        }
-    }
-
-    private async handleAddContextItem(item: ContextItem) {
-        const exists = this.contextItems.some(i => i.path === item.path);
-        if (!exists) {
-            this.contextItems.push(item);
-            this.sendContextItems();
-        }
-    }
-
-    private handleRemoveContextItem(path: string) {
-        this.contextItems = this.contextItems.filter(item => item.path !== path);
-        this.sendContextItems();
-    }
-
-    private async handleSelectFileForContext() {
-        const result = await vscode.window.showOpenDialog({
-            canSelectFiles: true,
-            canSelectFolders: false,
-            canSelectMany: true,
-            openLabel: '파일 추가'
-        });
-
-        if (result && result.length > 0) {
-            for (const uri of result) {
-                const item: ContextItem = {
-                    type: 'file',
-                    name: uri.path.split('/').pop() || '',
-                    path: getRelativePath(uri),
-                    uri: uri.toString()
-                };
-                await this.handleAddContextItem(item);
-            }
-        }
-    }
-
     private updateContextUsage() {
+        // 간단한 토큰 추정 (4자 = 1토큰)
         const totalChars = this.messages.reduce((acc, msg) => {
             if (typeof msg.content === 'string') {
                 return acc + msg.content.length;
             } else {
+                // 멀티모달 콘텐츠 길이 추정
                 return acc + JSON.stringify(msg.content).length;
             }
         }, 0);
         const estimatedTokens = Math.ceil(totalChars / 4);
-        const maxTokens = 1000000;
+        const maxTokens = 1000000; // 1M context window for Gemini 1.5
 
         this._view?.webview.postMessage({
             type: 'updateContext',
@@ -468,7 +375,6 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         });
     }
 
-    // HTML will be in the next file
     private _getHtmlForWebview(_webview: vscode.Webview) {
         return `<!DOCTYPE html>
 <html lang="ko">
@@ -611,75 +517,6 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
             position: relative;
         }
 
-        /* Context Items Section */
-        #context-items-section {
-            padding: 8px 12px;
-            border-bottom: 1px solid var(--vscode-panel-border);
-            background-color: var(--vscode-editor-background);
-            display: none;
-        }
-
-        #context-items-section.visible {
-            display: block;
-        }
-
-        #context-items-header {
-            font-size: 11px;
-            font-weight: 600;
-            opacity: 0.8;
-            margin-bottom: 8px;
-            text-transform: uppercase;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-
-        #context-items-list {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 6px;
-        }
-
-        .context-item {
-            display: flex;
-            align-items: center;
-            gap: 4px;
-            padding: 4px 8px;
-            background-color: var(--vscode-badge-background);
-            color: var(--vscode-badge-foreground);
-            border-radius: 4px;
-            font-size: 12px;
-        }
-
-        .context-item-remove {
-            background: none;
-            border: none;
-            color: inherit;
-            cursor: pointer;
-            padding: 0;
-            margin-left: 4px;
-            opacity: 0.7;
-        }
-
-        .context-item-remove:hover {
-            opacity: 1;
-        }
-
-        #add-context-btn {
-            padding: 4px 8px;
-            background-color: var(--vscode-button-secondaryBackground);
-            color: var(--vscode-button-secondaryForeground);
-            border: none;
-            border-radius: 4px;
-            font-size: 12px;
-            cursor: pointer;
-        }
-
-        #add-context-btn:hover {
-            background-color: var(--vscode-button-secondaryHoverBackground);
-        }
-
-        /* Messages Container */
         #messages-container {
             flex: 1;
             overflow-y: auto;
@@ -748,6 +585,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 
         #context-fill {
             height: 100%;
+            background-color: var(--vscode-progressBar-background); /* Fallback */
             background: linear-gradient(90deg, var(--vscode-charts-blue), var(--vscode-charts-purple));
             width: 0%;
             transition: width 0.3s ease;
@@ -785,7 +623,6 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
             border: 1px solid var(--vscode-input-border);
             border-radius: 6px;
             padding: 8px;
-            position: relative;
         }
 
         #input-box:focus-within {
@@ -803,54 +640,6 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
             min-height: 20px;
             max-height: 200px;
             padding: 0;
-        }
-
-        /* Autocomplete Dropdown */
-        #autocomplete-dropdown {
-            position: absolute;
-            bottom: 100%;
-            left: 0;
-            right: 0;
-            max-height: 200px;
-            overflow-y: auto;
-            background-color: var(--vscode-dropdown-background);
-            border: 1px solid var(--vscode-dropdown-border);
-            border-radius: 4px;
-            margin-bottom: 4px;
-            display: none;
-            z-index: 1000;
-        }
-
-        #autocomplete-dropdown.visible {
-            display: block;
-        }
-
-        .autocomplete-item {
-            padding: 8px 12px;
-            cursor: pointer;
-            font-size: 13px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .autocomplete-item:hover,
-        .autocomplete-item.selected {
-            background-color: var(--vscode-list-hoverBackground);
-        }
-
-        .autocomplete-file-icon {
-            opacity: 0.7;
-        }
-
-        .autocomplete-file-name {
-            font-weight: 500;
-        }
-
-        .autocomplete-file-path {
-            opacity: 0.6;
-            font-size: 11px;
-            margin-left: auto;
         }
 
         #send-btn {
@@ -917,20 +706,10 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     </div>
 
     <div id="main-content">
-        <!-- Context Items Section -->
-        <div id="context-items-section">
-            <div id="context-items-header">
-                📎 Code Context Items
-                <button id="add-context-btn">+ 파일 추가</button>
-            </div>
-            <div id="context-items-list"></div>
-        </div>
-
         <div id="messages-container">
             <div id="empty-state">
                 <div style="font-size: 48px; margin-bottom: 16px;">💬</div>
                 <div>AI에게 무엇이든 물어보세요</div>
-                <div style="font-size: 12px; margin-top: 8px; opacity: 0.7;">@ 를 입력하여 파일을 참조할 수 있습니다</div>
             </div>
         </div>
 
@@ -953,7 +732,6 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
             </div>
 
             <div id="input-box">
-                <div id="autocomplete-dropdown"></div>
                 <div id="image-preview-area" style="display: none; padding: 4px; gap: 4px; overflow-x: auto;"></div>
                 <div style="display: flex; width: 100%; align-items: flex-end; gap: 8px;">
                     <button id="attach-btn" class="icon-button" title="이미지 첨부">
@@ -962,7 +740,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
                             <path d="M5 8l2-2 2 2 2-2 2 2v3H5V8z"/>
                         </svg>
                     </button>
-                    <textarea id="message-input" placeholder="메시지를 입력하세요... (@로 파일 참조, Ctrl+Enter로 전송)" rows="1"></textarea>
+                    <textarea id="message-input" placeholder="메시지를 입력하세요... (Ctrl+Enter)" rows="1"></textarea>
                     <button id="stop-btn" style="display: none; background-color: var(--vscode-errorForeground); color: white; border: none; border-radius: 4px; width: 28px; height: 28px; align-items: center; justify-content: center; cursor: pointer;">
                         <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
                             <path d="M4 4h8v8H4z"/>
@@ -995,20 +773,11 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         const contextFill = document.getElementById('context-fill');
         const contextText = document.getElementById('context-text');
         const emptyState = document.getElementById('empty-state');
-        const contextItemsSection = document.getElementById('context-items-section');
-        const contextItemsList = document.getElementById('context-items-list');
-        const addContextBtn = document.getElementById('add-context-btn');
-        const autocompleteDropdown = document.getElementById('autocomplete-dropdown');
 
         // State
         let currentResponse = '';
         let selectedImages = [];
         let isGenerating = false;
-        let contextItems = [];
-        let autocompleteResults = [];
-        let selectedAutocompleteIndex = -1;
-        let isShowingAutocomplete = false;
-        let lastAtPosition = -1;
 
         // Initialize
         vscode.postMessage({ type: 'ready' });
@@ -1031,10 +800,6 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
             vscode.postMessage({ type: 'selectImage' });
         });
 
-        addContextBtn.addEventListener('click', () => {
-            vscode.postMessage({ type: 'selectFileForContext' });
-        });
-
         stopBtn.addEventListener('click', () => {
             vscode.postMessage({ type: 'stopGeneration' });
             setGenerating(false);
@@ -1050,57 +815,13 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
             vscode.postMessage({ type: 'changeModel', model: e.target.value });
         });
 
-        // @ Autocomplete functionality
-        messageInput.addEventListener('input', (e) => {
+        messageInput.addEventListener('input', () => {
             messageInput.style.height = 'auto';
             messageInput.style.height = messageInput.scrollHeight + 'px';
             updateSendButton();
-
-            const text = messageInput.value;
-            const cursorPos = messageInput.selectionStart;
-            
-            const textBeforeCursor = text.substring(0, cursorPos);
-            const lastAtIndex = textBeforeCursor.lastIndexOf('@');
-            
-            if (lastAtIndex !== -1) {
-                const textAfterAt = textBeforeCursor.substring(lastAtIndex + 1);
-                
-                if (!textAfterAt.includes(' ') && !textAfterAt.includes('\\n')) {
-                    lastAtPosition = lastAtIndex;
-                    
-                    if (textAfterAt.length >= 0) {
-                        vscode.postMessage({ type: 'searchFiles', query: textAfterAt });
-                        isShowingAutocomplete = true;
-                    }
-                } else {
-                    hideAutocomplete();
-                }
-            } else {
-                hideAutocomplete();
-            }
         });
 
         messageInput.addEventListener('keydown', (e) => {
-            if (isShowingAutocomplete && autocompleteResults.length > 0) {
-                if (e.key === 'ArrowDown') {
-                    e.preventDefault();
-                    selectedAutocompleteIndex = Math.min(selectedAutocompleteIndex + 1, autocompleteResults.length - 1);
-                    updateAutocompleteSelection();
-                } else if (e.key === 'ArrowUp') {
-                    e.preventDefault();
-                    selectedAutocompleteIndex = Math.max(selectedAutocompleteIndex - 1, 0);
-                    updateAutocompleteSelection();
-                } else if (e.key === 'Enter' && !e.ctrlKey) {
-                    e.preventDefault();
-                    if (selectedAutocompleteIndex >= 0) {
-                        selectAutocompleteItem(autocompleteResults[selectedAutocompleteIndex]);
-                    }
-                    return;
-                } else if (e.key === 'Escape') {
-                    hideAutocomplete();
-                }
-            }
-
             if (e.key === 'Enter' && e.ctrlKey) {
                 e.preventDefault();
                 sendMessage();
@@ -1126,6 +847,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 
             addMessage('user', text, selectedImages);
             
+            // Prepare images for sending (only mimeType and data)
             const imagesToSend = selectedImages.map(img => ({ mimeType: img.mimeType, data: img.data }));
             
             vscode.postMessage({ type: 'sendMessage', message: text, images: imagesToSend });
@@ -1139,79 +861,6 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
             setGenerating(true);
             
             if (emptyState) emptyState.style.display = 'none';
-        }
-
-        function hideAutocomplete() {
-            autocompleteDropdown.classList.remove('visible');
-            isShowingAutocomplete = false;
-            selectedAutocompleteIndex = -1;
-            autocompleteResults = [];
-        }
-
-        function showAutocomplete(results) {
-            autocompleteResults = results;
-            autocompleteDropdown.innerHTML = '';
-            
-            if (results.length === 0) {
-                hideAutocomplete();
-                return;
-            }
-
-            results.forEach((result, index) => {
-                const item = document.createElement('div');
-                item.className = 'autocomplete-item';
-                if (index === selectedAutocompleteIndex) {
-                    item.classList.add('selected');
-                }
-                
-                item.innerHTML = \`
-                    <span class="autocomplete-file-icon">📄</span>
-                    <span class="autocomplete-file-name">\${result.name}</span>
-                    <span class="autocomplete-file-path">\${result.path}</span>
-                \`;
-                
-                item.addEventListener('click', () => selectAutocompleteItem(result));
-                autocompleteDropdown.appendChild(item);
-            });
-
-            autocompleteDropdown.classList.add('visible');
-            selectedAutocompleteIndex = 0;
-            updateAutocompleteSelection();
-        }
-
-        function updateAutocompleteSelection() {
-            const items = autocompleteDropdown.querySelectorAll('.autocomplete-item');
-            items.forEach((item, index) => {
-                if (index === selectedAutocompleteIndex) {
-                    item.classList.add('selected');
-                    item.scrollIntoView({ block: 'nearest' });
-                } else {
-                    item.classList.remove('selected');
-                }
-            });
-        }
-
-        function selectAutocompleteItem(result) {
-            const text = messageInput.value;
-            const cursorPos = messageInput.selectionStart;
-            const textBeforeCursor = text.substring(0, cursorPos);
-            const textAfterCursor = text.substring(cursorPos);
-            
-            const lastAtIndex = textBeforeCursor.lastIndexOf('@');
-            const newText = text.substring(0, lastAtIndex) + text.substring(cursorPos);
-            
-            messageInput.value = newText;
-            
-            const item = {
-                type: 'file',
-                name: result.name,
-                path: result.path,
-                uri: result.uri
-            };
-            vscode.postMessage({ type: 'addContextItem', item });
-            
-            hideAutocomplete();
-            messageInput.focus();
         }
 
         function addMessage(role, text, images = []) {
@@ -1265,32 +914,10 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
             }
         }
 
-        function renderContextItems(items) {
-            contextItems = items;
-            contextItemsList.innerHTML = '';
-            
-            if (items.length > 0) {
-                contextItemsSection.classList.add('visible');
-                items.forEach(item => {
-                    const div = document.createElement('div');
-                    div.className = 'context-item';
-                    div.innerHTML = \`
-                        📄 \${item.name}
-                        <button class="context-item-remove">×</button>
-                    \`;
-                    div.querySelector('.context-item-remove').onclick = () => {
-                        vscode.postMessage({ type: 'removeContextItem', path: item.path });
-                    };
-                    contextItemsList.appendChild(div);
-                });
-            } else {
-                contextItemsSection.classList.remove('visible');
-            }
-        }
-
         function updateLastMessage(text) {
             const lastMsg = messagesContainer.lastElementChild;
             if (lastMsg && lastMsg.classList.contains('assistant-message')) {
+                // If the last message has a text content div, update it. Otherwise create it.
                 let contentDiv = lastMsg.querySelector('.message-content');
                 if (!contentDiv) {
                     contentDiv = document.createElement('div');
@@ -1361,6 +988,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
                     updateSendButton();
                     break;
                 case 'error':
+                    // Handle error display
                     const errorDiv = document.createElement('div');
                     errorDiv.style.color = 'var(--vscode-errorForeground)';
                     errorDiv.style.padding = '8px';
@@ -1383,11 +1011,8 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
                     contextFill.style.width = percent + '%';
                     contextText.textContent = \`\${msg.used.toLocaleString()} / \${(msg.total / 1000).toFixed(0)}k tokens\`;
                     break;
-                case 'contextItemsUpdate':
-                    renderContextItems(msg.items);
-                    break;
-                case 'fileSearchResults':
-                    showAutocomplete(msg.results);
+                case 'error':
+                    addMessage('error', msg.error);
                     break;
             }
         });
