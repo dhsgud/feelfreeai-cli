@@ -1,6 +1,7 @@
 import axios, { AxiosInstance } from 'axios';
 import { BaseProvider, ChatResponse, StreamChunk } from './base';
 import { Message } from '../config/types';
+import { MODEL_CONFIG } from '../config/modelConfig';
 
 /**
  * llama.cpp 서버 응답 형식
@@ -76,10 +77,10 @@ export class LlamaCppProvider extends BaseProvider {
 
         this.options = {
             endpoint: options.endpoint,
-            temperature: options.temperature ?? 0.7,
-            topP: options.topP ?? 0.9,
-            topK: options.topK ?? 40,
-            maxTokens: options.maxTokens ?? 2048,
+            temperature: options.temperature ?? MODEL_CONFIG.llamacpp.temperature,
+            topP: options.topP ?? MODEL_CONFIG.llamacpp.topP,
+            topK: options.topK ?? MODEL_CONFIG.llamacpp.topK,
+            maxTokens: options.maxTokens ?? MODEL_CONFIG.llamacpp.maxTokens,
             timeout: options.timeout ?? 60000,
         };
 

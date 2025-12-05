@@ -2,6 +2,7 @@ import os from 'os';
 import path from 'path';
 import fs from 'fs/promises';
 import { GlobalConfig, ProviderType } from './types';
+import { MODEL_CONFIG } from './modelConfig';
 
 /**
  * 기본 설정
@@ -11,16 +12,16 @@ const DEFAULT_CONFIG: GlobalConfig = {
     providers: {
         llamacpp: {
             type: 'llamacpp',
-            endpoint: 'http://localhost:8080',
+            endpoint: MODEL_CONFIG.llamacpp.endpoint,
             model: 'default',
-            temperature: 0.7,
-            maxTokens: 2048,
+            temperature: MODEL_CONFIG.llamacpp.temperature,
+            maxTokens: MODEL_CONFIG.llamacpp.maxTokens,
         },
         gemini: {
             type: 'gemini',
-            model: 'gemini-1.5-flash',
-            temperature: 0.7,
-            maxTokens: 2048,
+            model: MODEL_CONFIG.gemini.model,
+            temperature: MODEL_CONFIG.gemini.temperature,
+            maxTokens: MODEL_CONFIG.gemini.maxTokens,
         },
     },
     allowedTools: ['read'],

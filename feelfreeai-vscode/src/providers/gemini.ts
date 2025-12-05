@@ -1,6 +1,7 @@
 import { GoogleGenerativeAI, GenerativeModel, GenerateContentResult, Part, Content } from '@google/generative-ai';
 import { BaseProvider, ChatResponse, StreamChunk } from './base';
 import { Message } from '../config/types';
+import { MODEL_CONFIG } from '../config/modelConfig';
 
 /**
  * Gemini 프로바이더 옵션
@@ -38,11 +39,11 @@ export class GeminiProvider extends BaseProvider {
 
         this.options = {
             apiKey: options.apiKey,
-            model: options.model ?? 'gemini-1.5-flash',
-            temperature: options.temperature ?? 0.7,
-            topP: options.topP ?? 0.9,
-            topK: options.topK ?? 40,
-            maxTokens: options.maxTokens ?? 2048,
+            model: options.model ?? MODEL_CONFIG.gemini.model,
+            temperature: options.temperature ?? MODEL_CONFIG.gemini.temperature,
+            topP: options.topP ?? MODEL_CONFIG.gemini.topP,
+            topK: options.topK ?? MODEL_CONFIG.gemini.topK,
+            maxTokens: options.maxTokens ?? MODEL_CONFIG.gemini.maxTokens,
         };
 
         this.client = new GoogleGenerativeAI(this.options.apiKey);

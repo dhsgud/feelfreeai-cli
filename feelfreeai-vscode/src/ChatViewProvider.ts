@@ -4,6 +4,8 @@ import { LlamaCppProvider } from './providers/llamacpp';
 import { BaseProvider } from './providers/base';
 import { Message } from './config/types';
 import { searchWorkspaceFiles, getFileContent, getRelativePath } from './files/fileSearch';
+import { MODEL_CONFIG } from './config/modelConfig';
+import { DEFAULT_SYSTEM_PROMPT } from './config/prompts';
 
 interface ChatSession {
     id: string;
@@ -124,16 +126,16 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
                 this.provider = new GeminiProvider({
                     apiKey,
                     model,
-                    temperature: 0.7,
-                    maxTokens: 2048
+                    temperature: MODEL_CONFIG.gemini.temperature,
+                    maxTokens: MODEL_CONFIG.gemini.maxTokens
                 });
             } else {
                 const endpoint = config.get<string>('llamacppEndpoint', 'http://localhost:8080');
 
                 this.provider = new LlamaCppProvider({
                     endpoint,
-                    temperature: 0.7,
-                    maxTokens: 2048
+                    temperature: MODEL_CONFIG.llamacpp.temperature,
+                    maxTokens: MODEL_CONFIG.llamacpp.maxTokens
                 });
             }
 
@@ -201,7 +203,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
                 let fullResponse = '';
                 await this.provider.stream(
                     this.messages,
-                    'You are a helpful AI coding assistant.',
+                    DEFAULT_SYSTEM_PROMPT,
                     (chunk) => {
                         if (signal.aborted) return;
 
@@ -224,7 +226,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
             } else {
                 const response = await this.provider.chat(
                     this.messages,
-                    'You are a helpful AI coding assistant.'
+                    DEFAULT_SYSTEM_PROMPT
                 );
 
                 if (signal.aborted) return;
@@ -459,7 +461,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
             }
         }, 0);
         const estimatedTokens = Math.ceil(totalChars / 4);
-        const maxTokens = 1000000;
+        const maxTokens = MODEL_CONFIG.context.gemini;
 
         this._view?.webview.postMessage({
             type: 'updateContext',
