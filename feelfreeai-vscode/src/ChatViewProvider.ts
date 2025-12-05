@@ -1103,10 +1103,11 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
                 }
             }
 
-            if (e.key === 'Enter' && e.ctrlKey) {
+            if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
                 sendMessage();
             }
+            // Shift+Enter는 기본 동작(줄바꿈)을 허용
         });
 
         sendBtn.addEventListener('click', sendMessage);
