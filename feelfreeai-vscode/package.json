@@ -2,7 +2,7 @@
     "name": "feelfreeai-vscode",
     "displayName": "FeelFree AI",
     "description": "AI 코딩 어시스턴트 - VS Code 내에서 Gemini 및 llama.cpp와 대화하세요",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "publisher": "feelfreeai",
     "icon": "icon.png",
     "engines": {

@@ -1,6 +1,6 @@
 ﻿{
   "name": "feelfreeai-cli",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "AI 코딩 어시스턴트 CLI - llama.cpp와 Gemini를 활용한 대화형 코딩 도구",
   "main": "dist/index.js",
   "bin": {
