@@ -732,6 +732,68 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
             border: 1px solid var(--vscode-widget-border);
         }
 
+        /* Markdown Styles */
+        .message-content pre {
+            background-color: var(--vscode-textCodeBlock-background);
+            padding: 12px;
+            border-radius: 6px;
+            overflow-x: auto;
+            margin: 8px 0;
+            white-space: pre;
+        }
+
+        .message-content pre code {
+            background: none;
+            padding: 0;
+            font-family: var(--vscode-editor-font-family), monospace;
+            font-size: 12px;
+            line-height: 1.4;
+        }
+
+        .message-content code {
+            font-family: var(--vscode-editor-font-family), monospace;
+            background-color: var(--vscode-textCodeBlock-background);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+
+        .message-content strong { font-weight: 600; }
+        .message-content em { font-style: italic; }
+
+        .message-content a {
+            color: var(--vscode-textLink-foreground);
+            text-decoration: none;
+        }
+        .message-content a:hover { text-decoration: underline; }
+
+        .message-content ul, .message-content ol {
+            margin: 8px 0;
+            padding-left: 20px;
+        }
+        .message-content li { margin: 4px 0; }
+
+        .message-content h1, .message-content h2, .message-content h3 {
+            margin: 12px 0 8px 0;
+            font-weight: 600;
+        }
+        .message-content h1 { font-size: 1.4em; }
+        .message-content h2 { font-size: 1.2em; }
+        .message-content h3 { font-size: 1.1em; }
+
+        .message-content blockquote {
+            border-left: 3px solid var(--vscode-textLink-foreground);
+            margin: 8px 0;
+            padding-left: 12px;
+            opacity: 0.8;
+        }
+
+        .message-content hr {
+            border: none;
+            border-top: 1px solid var(--vscode-panel-border);
+            margin: 12px 0;
+        }
+
         /* Input Area */
         #input-area {
             padding: 12px;
@@ -1217,6 +1279,56 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
             messageInput.focus();
         }
 
+        // Markdown parser function
+        function renderMarkdown(text) {
+            if (!text) return '';
+            
+            // Escape HTML to prevent XSS
+            let html = text
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;');
+            
+            // Code blocks (using String.fromCharCode for backticks)
+            const bt = String.fromCharCode(96);
+            const codeBlockRe = new RegExp(bt+bt+bt + '(\\\\w*)\\\\n([\\\\s\\\\S]*?)' + bt+bt+bt, 'g');
+            html = html.replace(codeBlockRe, function(m, lang, code) {
+                return '<pre><code class="language-' + (lang || 'text') + '">' + code.trim() + '</code></pre>';
+            });
+            
+            // Inline code
+            const inlineCodeRe = new RegExp(bt + '([^' + bt + ']+)' + bt, 'g');
+            html = html.replace(inlineCodeRe, '<code>$1</code>');
+            
+            // Bold
+            html = html.replace(/\\*\\*([^*]+)\\*\\*/g, '<strong>$1</strong>');
+            html = html.replace(/__([^_]+)__/g, '<strong>$1</strong>');
+            
+            // Italic
+            html = html.replace(/\\*([^*]+)\\*/g, '<em>$1</em>');
+            html = html.replace(/_([^_]+)_/g, '<em>$1</em>');
+            
+            // Headers
+            html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>');
+            html = html.replace(/^## (.+)$/gm, '<h2>$1</h2>');
+            html = html.replace(/^# (.+)$/gm, '<h1>$1</h1>');
+            
+            // Blockquotes
+            html = html.replace(/^&gt; (.+)$/gm, '<blockquote>$1</blockquote>');
+            
+            // Lists
+            html = html.replace(/^[\\-\\*] (.+)$/gm, '<li>$1</li>');
+            html = html.replace(/^\\d+\\. (.+)$/gm, '<li>$1</li>');
+            
+            // Links
+            html = html.replace(/\\[([^\\]]+)\\]\\(([^)]+)\\)/g, '<a href="$2" target="_blank">$1</a>');
+            
+            // Line breaks
+            html = html.replace(/\\n/g, '<br>');
+            
+            return html;
+        }
+
         function addMessage(role, text, images = []) {
             if (emptyState) emptyState.style.display = 'none';
 
@@ -1234,7 +1346,8 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
             }
             
             if (text) {
-                contentHtml += \`<div class="message-content">\${text}</div>\`;
+                const displayText = role === 'assistant' ? renderMarkdown(text) : text.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\\n/g, '<br>');
+                contentHtml += \`<div class="message-content">\${displayText}</div>\`;
             }
 
             div.innerHTML = \`
@@ -1300,7 +1413,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
                     contentDiv.className = 'message-content';
                     lastMsg.appendChild(contentDiv);
                 }
-                contentDiv.textContent = text;
+                contentDiv.innerHTML = renderMarkdown(text);
             } else {
                 addMessage('assistant', text);
             }
